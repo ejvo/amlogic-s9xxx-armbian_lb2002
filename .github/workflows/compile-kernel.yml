@@ -165,7 +165,9 @@ jobs:
             kernel-${{ inputs.kernel_toolchain }}-${{ inputs.kernel_version }}-
 
       - name: Compile the kernel [ ${{ inputs.kernel_version }} ]
+        id: compile_kernel
         uses: ophub/amlogic-s9xxx-armbian@main
+        continue-on-error: true
         if: ${{ steps.disk.outputs.status == 'success' && !cancelled() }}
         with:
           build_target: kernel
@@ -195,6 +197,13 @@ jobs:
           name: kernel-output-${{ inputs.kernel_version }}${{ inputs.kernel_sign }}
           path: /builder/compile-kernel/output/**
           if-no-files-found: error
+
+      - name: Verify kernel output exists
+        if: ${{ always() }}
+        run: |
+          test -d /builder/compile-kernel/output
+          find /builder/compile-kernel/output -maxdepth 2 -type f | sort
+          test "$(find /builder/compile-kernel/output -type f | wc -l)" -gt 0
 
       - name: Upload Kernel to Release
         uses: ncipollo/release-action@main
