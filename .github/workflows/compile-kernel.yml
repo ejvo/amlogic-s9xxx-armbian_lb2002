@@ -180,6 +180,14 @@ jobs:
           docker_hostpath: /builder
           docker_image: ophub/armbian-${{ inputs.docker_image }}:arm64
 
+      - name: Upload kernel artifacts
+        uses: actions/upload-artifact@v4
+        if: ${{ always() && env.PACKAGED_OUTPUTPATH != '' }}
+        with:
+          name: kernel-output-${{ inputs.kernel_version }}${{ inputs.kernel_sign }}
+          path: ${{ env.PACKAGED_OUTPUTPATH }}/*
+          if-no-files-found: warn
+
       - name: Upload Kernel to Release
         uses: ncipollo/release-action@main
         if: ${{ env.PACKAGED_STATUS == 'success' && !cancelled() }}
