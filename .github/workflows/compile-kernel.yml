@@ -180,26 +180,21 @@ jobs:
           docker_hostpath: /builder
           docker_image: ophub/armbian-${{ inputs.docker_image }}:arm64
 
-      - name: Debug packaged paths
+      - name: Debug packaged files
         if: ${{ always() }}
         run: |
           echo "PACKAGED_STATUS=${PACKAGED_STATUS}"
           echo "PACKAGED_OUTPUTPATH=${PACKAGED_OUTPUTPATH}"
-          find /builder -maxdepth 4 -type d | sort | grep compile-kernel || true
-          find /builder -maxdepth 4 -type f | sort | grep -E 'boot-|modules-|linux-image|linux-dtb|header-' || true
-          find /opt -maxdepth 4 -type d | sort | grep compile-kernel || true
-          find /opt -maxdepth 4 -type f | sort | grep -E 'boot-|modules-|linux-image|linux-dtb|header-' || true
+          ls -lah /builder/compile-kernel/output || true
+          find /builder/compile-kernel/output -maxdepth 2 -type f | sort || true
 
       - name: Upload kernel artifacts
         uses: actions/upload-artifact@v4
         if: ${{ always() }}
         with:
           name: kernel-output-${{ inputs.kernel_version }}${{ inputs.kernel_sign }}
-          path: |
-            /builder/compile-kernel/output/**
-            compile-kernel/output/**
-            /opt/kernel/compile-kernel/output/**
-          if-no-files-found: warn
+          path: /builder/compile-kernel/output/**
+          if-no-files-found: error
 
       - name: Upload Kernel to Release
         uses: ncipollo/release-action@main
