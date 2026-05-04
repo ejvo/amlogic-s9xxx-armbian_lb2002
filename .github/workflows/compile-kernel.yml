@@ -77,11 +77,11 @@ on:
       kernel_sign:
         description: "Set the kernel custom signature"
         required: false
-        default: "-ophub"
+        default: "-lb2002can"
         type: choice
         options:
-          - -ophub
           - -lb2002can
+          - -ophub
 
 env:
   TZ: Etc/UTC
@@ -178,6 +178,8 @@ jobs:
           kernel_package: ${{ inputs.kernel_package }}
           kernel_sign: ${{ inputs.kernel_sign }}
           kernel_toolchain: ${{ inputs.kernel_toolchain }}
+          kernel_config: kernel/config_lb2002
+          config_flavor: ""
           ccache_clear: ${{ inputs.ccache_clear }}
           docker_hostpath: /builder
           docker_image: ophub/armbian-${{ inputs.docker_image }}:arm64
@@ -204,6 +206,20 @@ jobs:
           test -d /builder/compile-kernel/output
           find /builder/compile-kernel/output -maxdepth 2 -type f | sort
           test "$(find /builder/compile-kernel/output -type f | wc -l)" -gt 0
+
+      - name: Verify CAN config in packaged kernel
+        if: ${{ always() }}
+        run: |
+          set -e
+          boot_tar="$(find /builder/compile-kernel/output -maxdepth 2 -type f -name 'boot-*.tar.gz' | head -n 1)"
+          test -n "${boot_tar}"
+          config_name="$(tar -tf "${boot_tar}" | grep '^config-' | head -n 1)"
+          test -n "${config_name}"
+          tar -xOf "${boot_tar}" "${config_name}" > /tmp/kernel-config-check
+          grep -E '^CONFIG_CAN_GS_USB=m$' /tmp/kernel-config-check
+          grep -E '^CONFIG_CAN_SLCAN=m$' /tmp/kernel-config-check
+          grep -E '^CONFIG_CAN_MCP251X=m$' /tmp/kernel-config-check
+          grep -E '^CONFIG_CAN_MCP251XFD=m$' /tmp/kernel-config-check
 
       - name: Upload Kernel to Release
         uses: ncipollo/release-action@main
