@@ -259,6 +259,7 @@ on:
         type: choice
         options:
           - ophub/kernel
+          - ejvo/amlogic-s9xxx-armbian_lb2002
       kernel_usage:
         description: "Set the tags of the stable kernel."
         required: false
@@ -293,6 +294,11 @@ on:
         options:
           - ophub
           - angel
+          - lb2002
+      armbian_files:
+        description: "Set the path of custom Armbian files."
+        required: false
+        default: "lb2002_dtb_research/armbian_files_lb2002_v2"
       config_board:
         description: "Set the base Armbian board name."
         required: false
@@ -426,6 +432,7 @@ jobs:
           kernel_repo: ${{ inputs.kernel_repo }}
           kernel_usage: ${{ inputs.kernel_usage }}
           armbian_fstype: ${{ inputs.armbian_fstype }}
+          armbian_files: ${{ inputs.armbian_files }}
           builder_name: ${{ inputs.builder_name }}
 
       - name: Upload rebuilt images to Release
