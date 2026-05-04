@@ -5,6 +5,9 @@
 
 name: Build Armbian arm64 server image
 
+permissions:
+  contents: read
+
 on:
   repository_dispatch:
   workflow_dispatch:
@@ -12,7 +15,7 @@ on:
       set_release:
         description: "Select OS Release."
         required: false
-        default: "trixie"
+        default: "bookworm"
         type: choice
         options:
           - trixie
@@ -22,240 +25,25 @@ on:
       armbian_board:
         description: "Select device board."
         required: false
-        default: "all"
+        default: "s905l3a-m401a"
         type: choice
         options:
-          - all
-          - amlogic
-          - rockchip
-          - allwinner
-          - rockchip50
-          - rockchip50_100
-          - first50
-          - range50_100
-          - range100_150
-          - last20
-          - a311d-oes_s922x-oes-plus_wxy-oect
-          - nsy-g16-plus_nsy-g68-plus_bdy-g18-pro
-          - s905d_s905x3_s912_s922x-ct2000
-          - a311d
-          - a311d-oes
-          - alark35-3500
-          - anas3035
-          - aio-3399b
-          - aio-3399c
-          - aio-3399c-ai
-          - bdkj-bd-one
-          - bdy-g18-pro
-          - beikeyun
-          - boca-tcn100
-          - boca-tcn200
-          - cd1000
-          - chainedbox
-          - cm3588-nas
-          - crrc
-          - dc-a588
-          - dg3399
-          - dg-tn3568
-          - dlfr100
-          - e20c
-          - e25
-          - eaidk-610
-          - emb3531
-          - fine3399
-          - firefly-itx-3588j
-          - firefly-jd4
-          - firefly-rk3399
-          - fmx1-pro
-          - fmx1-pro-b
-          - gea-6319
-          - gzpeite-p01
-          - h28k
-          - h618-devboard
-          - h66k
-          - h68k
-          - h69k
-          - h88k
-          - h88k-v3
-          - h96-max-m2
-          - hk1-rbox-k8s
-          - hs530r
-          - ht2
-          - hugsun-x99
-          - ipc-r
-          - jp-tvbox
-          - king3399
-          - kylin3399
-          - lckfb-tspi
-          - lckfb-tspi-3m
-          - leez
-          - lubancat-1
-          - lubancat-2
-          - lx-r3s
-          - lyt-t68m
-          - lz-d3568
-          - lz-d3588
-          - lz-k3568
-          - mrkaio-m68s
-          - nanopc-t4
-          - nanopc-t6
-          - nanopi-m5
-          - nanopi-r5c
-          - nanopi-r5s
-          - nsy-g16-plus
-          - nsy-g68-plus
-          - orangepi-3b
-          - orangepi-5-plus
-          - orangepi-5b
-          - orangepi-zero3
-          - painet-p3
-          - panther-x2
-          - photonicat
-          - r66s
-          - r68s
-          - renegade-rk3328
-          - rk3318-box
-          - rock-5-itx
-          - rock5b
-          - rock5c
-          - ruisen-box
-          - s905
-          - s905-beelink-mini
-          - s905-mxqpro-plus
-          - s905d
-          - s905d-ki-pro
-          - s905d-sml5442tw
-          - s905d3-khadas-vim3l
-          - s905l
-          - s905l-aurora-1s
-          - s905l-b860av21u
-          - s905l-mg101
-          - s905l2
-          - s905l2-e900v21e
-          - s905l2-wojia
-          - s905l3
-          - s905l3-cm211
-          - s905l3-unt400g1
-          - s905l3-unt402a
           - s905l3a
           - s905l3a-cm311
           - s905l3a-m401a
-          - s905l3b
-          - s905l3b-e900v21d
-          - s905l3b-e900v22d
-          - s905l3b-e900v22e
-          - s905l3b-ip103h
-          - s905l3b-rg020et-ca
-          - s905l3b-unt403a
-          - s905lb-ipbs9505
-          - s905lb-q96-mini
-          - s905lb-r3300l
-          - s905mb
-          - s905w
-          - s905w-w95
-          - s905w-x96-mini
-          - s905w-x96w
-          - s905x
-          - s905x-b860h
-          - s905x-nexbox-a95x
-          - s905x-t95
-          - s905x-tbee
-          - s905x-tx9
-          - s905x2
-          - s905x2-km3
-          - s905x2-x96max-2g
-          - s905x2-hg680fj
-          - s905x3
-          - s905x3-2101
-          - s905x3-a100
-          - s905x3-a95xf3
-          - s905x3-a95xf3-gb
-          - s905x3-b
-          - s905x3-h96max
-          - s905x3-hk1
-          - s905x3-ip1001m
-          - s905x3-q1
-          - s905x3-q2
-          - s905x3-tox1
-          - s905x3-tx3
-          - s905x3-tx3-bz
-          - s905x3-ugoosx3
-          - s905x3-whale
-          - s905x3-x88-pro-x3
-          - s905x3-x96air
-          - s905x3-x96air-gb
-          - s905x3-x96max
-          - s912
-          - s912-h96pro-plus
-          - s912-m8s-pro
-          - s912-nexbox-a1
-          - s912-nexbox-a2
-          - s912-onecloudpro
-          - s912-phicomm-t1
-          - s912-t95z-plus
-          - s912-tx8-max
-          - s912-tx9-pro-2g
-          - s912-tx9-pro-3g
-          - s912-x92
-          - s912-zyxq-fake
-          - s922x
-          - s922x-ct2000
-          - s922x-gtking
-          - s922x-gtkingpro-h
-          - s922x-odroid-n2
-          - s922x-oes-plus
-          - s922x-reva
-          - s922x-ugoos-am6
-          - seewo-sv21
-          - smart-am40
-          - smart-am60
-          - station-m1
-          - station-m2
-          - station-p2
-          - sv-33a6x
-          - sv-33a6x-vpu
-          - swan1-w28
-          - sw799
-          - taram
-          - tanix-tx6
-          - tb-ls3399
-          - tn3399
-          - tpm312
-          - tqc-a01
-          - tvi3315a
-          - vontar-h618
-          - vplus
-          - wocyber-a3
-          - wxy-oect
-          - wxy-oect-mod
-          - x88pro20
-          - x98h
-          - xiaobao
-          - yskj
-          - zcube1-max
-          - zk-r39a
-          - zysj
       armbian_kernel:
         description: "Select kernel version."
         required: false
-        default: "6.12.y_6.18.y"
+        default: "6.12.y"
         type: choice
         options:
-          - 5.10.y
-          - 5.15.y
-          - 6.1.y
-          - 6.6.y
           - 6.12.y
           - 6.18.y
-          - 5.10.y_5.15.y
-          - 6.1.y_6.6.y
           - 6.12.y_6.18.y
-          - 6.1.y_6.12.y
-          - 6.1.y_6.18.y
       kernel_repo:
         description: "Set the kernel repository."
         required: false
-        default: "ophub/kernel"
+        default: "ejvo/amlogic-s9xxx-armbian_lb2002"
         type: choice
         options:
           - ophub/kernel
@@ -289,7 +77,7 @@ on:
       builder_name:
         description: "Set Armbian builder signature."
         required: false
-        default: "ophub"
+        default: "lb2002"
         type: choice
         options:
           - ophub
@@ -331,7 +119,6 @@ jobs:
           sudo -E apt-get -y purge azure-cli ghc* zulu* llvm* firefox google* dotnet* powershell openjdk* mongodb* moby* || true
           sudo -E apt-get -y install $(curl -fsSL https://ophub.org/ubuntu2404-build-armbian-depends)
           sudo -E systemctl daemon-reload
-          #sudo -E apt-get -y full-upgrade
           sudo -E apt-get -y autoremove --purge
           sudo -E apt-get clean
           sudo sed -i '/NVM_DIR/d;/skel/d' /root/{.bashrc,.profile}
@@ -344,6 +131,7 @@ jobs:
           echo "status=success" >> ${GITHUB_OUTPUT}
 
       - name: Create virtual disk for extended storage
+        id: disk
         run: |
           mnt_size=$(expr $(df -h /mnt | tail -1 | awk '{print $4}' | sed 's/[[:alpha:]]//g' | sed 's/\..*//') - 1)
           root_size=$(expr $(df -h / | tail -1 | awk '{print $4}' | sed 's/[[:alpha:]]//g' | sed 's/\..*//') - 4)
@@ -378,47 +166,34 @@ jobs:
         working-directory: /builder
         if: ${{ steps.down.outputs.status == 'success' && !cancelled() }}
         run: |
-          # Enable QEMU emulation for ARM cross-compilation
           docker run --rm --privileged multiarch/qemu-user-static --reset -p yes 2>/dev/null || true
-
-          # Set the board name for the base Armbian image
           config_board="${{ inputs.config_board }}"
           [[ -z "${config_board}" ]] && config_board="odroidn2"
-
-          # Compile options reference: https://docs.armbian.com/Developer-Guide_Build-Options
           cd build/
-              ./compile.sh RELEASE=${{ inputs.set_release }} BOARD=${config_board} BRANCH=current BUILD_MINIMAL=no \
-                           BUILD_ONLY=default HOST=armbian BUILD_DESKTOP=no EXPERT=yes KERNEL_CONFIGURE=no \
-                           COMPRESS_OUTPUTIMAGE="sha" SHARE_LOG=yes
-
+          ./compile.sh RELEASE=${{ inputs.set_release }} BOARD=${config_board} BRANCH=current BUILD_MINIMAL=no \
+                       BUILD_ONLY=default HOST=armbian BUILD_DESKTOP=no EXPERT=yes KERNEL_CONFIGURE=no \
+                       COMPRESS_OUTPUTIMAGE="sha" SHARE_LOG=yes
           echo "status=success" >> ${GITHUB_OUTPUT}
 
       - name: Organize output files and reclaim disk space
         id: clean
         if: ${{ steps.compile.outputs.status == 'success' && !cancelled() }}
         run: |
-          # Extract essential artifacts and remove build files
           chmod +x ${ROOTFS_SCRIPT}
           ${ROOTFS_SCRIPT} -v ${{ inputs.set_release }} -s true -c true -k true -p arm64
-
-          # Remove build files while preserving output
           cd build/
           rm -rf $(ls . | grep -v "^output$" | xargs) 2>/dev/null
-
-          # Display disk usage after cleanup
           df -hT ${PWD}
           echo "build_tag=Armbian_${{ inputs.set_release }}_arm64_${{ inputs.armbian_edition }}_$(date +"%Y.%m")" >> ${GITHUB_ENV}
           echo "status=success" >> ${GITHUB_OUTPUT}
 
-      - name: Upload Armbian image to Release
-        uses: ncipollo/release-action@main
+      - name: Upload Armbian base image artifacts
+        uses: actions/upload-artifact@v4
         if: ${{ steps.clean.outputs.status == 'success' && !cancelled() }}
         with:
-          tag: ${{ env.build_tag }}
-          artifacts: build/output/images/*
-          allowUpdates: true
-          makeLatest: true
-          token: ${{ secrets.GITHUB_TOKEN }}
+          name: armbian-base-image-${{ inputs.set_release }}-${{ inputs.armbian_edition }}
+          path: build/output/images/*
+          if-no-files-found: error
 
       - name: Rebuild Armbian for target boards
         uses: ophub/amlogic-s9xxx-armbian@main
@@ -435,23 +210,10 @@ jobs:
           armbian_files: ${{ inputs.armbian_files }}
           builder_name: ${{ inputs.builder_name }}
 
-      - name: Upload rebuilt images to Release
-        uses: ncipollo/release-action@main
+      - name: Upload rebuilt images artifacts
+        uses: actions/upload-artifact@v4
         if: ${{ env.PACKAGED_STATUS == 'success' && !cancelled() }}
         with:
-          tag: ${{ env.build_tag }}
-          artifacts: ${{ env.PACKAGED_OUTPUTPATH }}/*
-          allowUpdates: true
-          removeArtifacts: false
-          replacesArtifacts: true
-          makeLatest: true
-          token: ${{ secrets.GITHUB_TOKEN }}
-          body: |
-            ### Armbian Image Information
-            - Default username: `root`
-            - Default password: `1234`
-            - Install command: `armbian-install`
-            - Update command: `armbian-update`
-            ### Applicable Platform
-            - 🐧 `arm64`
-            - 🐋 Docker image: https://hub.docker.com/u/ophub
+          name: armbian-lb2002-image-${{ inputs.set_release }}-${{ inputs.armbian_edition }}-${{ inputs.armbian_board }}
+          path: ${{ env.PACKAGED_OUTPUTPATH }}/*
+          if-no-files-found: error
