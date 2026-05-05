@@ -241,40 +241,33 @@ jobs:
         run: |
           set -e
           outdir="/builder/compile-kernel/output"
+          workdir="/tmp/kernel-release-alias"
+          rm -rf "${workdir}"
+          mkdir -p "${workdir}/main" "${workdir}/deb"
+
           main_tar="$(find "${outdir}" -maxdepth 1 -type f -name '*.tar.gz' ! -name 'deb-*' | head -n 1)"
           deb_tar="$(find "${outdir}" -maxdepth 1 -type f -name 'deb-*.tar.gz' | head -n 1)"
           test -n "${main_tar}"
           test -n "${deb_tar}"
 
-          boot_member="$(tar -tf "${main_tar}" | grep -E '(^|/|\.\/)boot-[0-9]+\.[0-9]+\.[0-9]+.*\.tar\.gz$' | head -n 1)"
+          tar -xzf "${main_tar}" -C "${workdir}/main"
+          tar -xzf "${deb_tar}" -C "${workdir}/deb"
+
+          boot_member="$(find "${workdir}/main" -type f -name 'boot-*.tar.gz' | head -n 1)"
           test -n "${boot_member}"
 
           exact_version="$(basename "${boot_member}" | sed -E 's/^boot-([0-9]+\.[0-9]+\.[0-9]+).*/\1/')"
           test -n "${exact_version}"
 
-          wildcard_version="${{ inputs.kernel_version }}"
+          (
+            cd "${workdir}/main"
+            tar -czf "${outdir}/${exact_version}.tar.gz" ./*
+          )
 
-          # Если exact_version совпадает с wildcard, извлекаем реальную версию из vmlinuz-*
-          if [ "${exact_version}" = "${wildcard_version}" ]; then
-            echo "exact_version equals wildcard, trying to extract real kernel version from vmlinuz..."
-            tmpdir=$(mktemp -d)
-            tar -xOf "${main_tar}" "${boot_member}" > "${tmpdir}/boot.tar.gz"
-            tar -xzf "${tmpdir}/boot.tar.gz" -C "${tmpdir}" 2>/dev/null || true
-            vmlinuz_file=$(find "${tmpdir}" -name 'vmlinuz-*' -type f | head -n 1)
-            if [ -n "${vmlinuz_file}" ]; then
-              exact_version=$(basename "${vmlinuz_file}" | sed -E 's/vmlinuz-//')
-            fi
-            rm -rf "${tmpdir}"
-            echo "Real kernel version determined: ${exact_version}"
-          fi
-
-          # Точная версия (используем sudo для прав)
-          sudo cp -f "${main_tar}" "${outdir}/${exact_version}.tar.gz"
-          sudo cp -f "${deb_tar}" "${outdir}/deb-${exact_version}.tar.gz"
-
-          # Wildcard-псевдонимы (используем sudo для прав)
-          sudo cp -f "${main_tar}" "${outdir}/${wildcard_version}.tar.gz"
-          sudo cp -f "${deb_tar}" "${outdir}/deb-${wildcard_version}.tar.gz"
+          (
+            cd "${workdir}/deb"
+            tar -czf "${outdir}/deb-${exact_version}.tar.gz" ./*
+          )
 
           echo "EXACT_KERNEL_VERSION=${exact_version}" >> ${GITHUB_ENV}
           ls -lh "${outdir}"
