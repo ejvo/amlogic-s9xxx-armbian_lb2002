@@ -103,10 +103,35 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Preflight
+        id: preflight
+        run: |
+          set -e
+          custom_root="${{ github.workspace }}/${{ inputs.armbian_files }}"
+          test -d "${custom_root}"
+          test -f "${custom_root}/boot/uEnv.txt"
+          test -f "${custom_root}/boot/dtb/amlogic/meson-g12a-s905l3a-lb2002-test-v2.dtb"
+
+          case "${{ inputs.armbian_board }}" in
+            s905l3a) ;;
+            *)
+              echo "error: unsupported armbian_board: ${{ inputs.armbian_board }}"
+              exit 1
+              ;;
+          esac
+
+          kernel_url="https://github.com/${{ inputs.kernel_repo }}/releases/download/kernel_${{ inputs.kernel_usage }}/${{ inputs.armbian_kernel }}.tar.gz"
+          echo "Checking kernel URL: ${kernel_url}"
+          curl -fsI -o /dev/null "${kernel_url}"
+
+          echo "Preflight checks passed."
+          echo "status=success" >> ${GITHUB_OUTPUT}
+
       - name: Initialize the build environment
         id: init
         env:
           DEBIAN_FRONTEND: noninteractive
+        if: ${{ steps.preflight.outputs.status == 'success' && !cancelled() }}
         run: |
           docker rmi -f $(docker images -q) 2>/dev/null || true
           [[ -n "${AGENT_TOOLSDIRECTORY}" ]] && sudo rm -rf "${AGENT_TOOLSDIRECTORY}"
@@ -130,6 +155,7 @@ jobs:
 
       - name: Create virtual disk for extended storage
         id: disk
+        if: ${{ steps.init.outputs.status == 'success' && !cancelled() }}
         run: |
           mnt_size=$(expr $(df -h /mnt | tail -1 | awk '{print $4}' | sed 's/[[:alpha:]]//g' | sed 's/\..*//') - 1)
           root_size=$(expr $(df -h / | tail -1 | awk '{print $4}' | sed 's/[[:alpha:]]//g' | sed 's/\..*//') - 4)
@@ -204,6 +230,7 @@ jobs:
 
           mkdir -p rebuild/build/output/images
           cp -f build/output/images/*.img.gz rebuild/build/output/images/
+          gzip -df rebuild/build/output/images/*.img.gz
 
           custom_files="${{ github.workspace }}/${{ inputs.armbian_files }}"
           target_common="rebuild/build-armbian/armbian-files/common-files"
