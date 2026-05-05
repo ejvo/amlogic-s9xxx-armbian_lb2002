@@ -212,15 +212,24 @@ jobs:
         if: ${{ always() }}
         run: |
           set -e
-          boot_tar="$(find /builder/compile-kernel/output -maxdepth 2 -type f -name 'boot-*.tar.gz' | head -n 1)"
-          test -n "${boot_tar}"
-          config_name="$(tar -tf "${boot_tar}" | grep -E '(^|/|\.\/)config-[0-9]+\.[0-9]+\.[0-9]+' | head -n 1)"
-          if [ -z "${config_name}" ]; then
-            echo "Could not locate config-* inside ${boot_tar}"
-            tar -tf "${boot_tar}" | sed -n '1,80p'
+          outdir="/builder/compile-kernel/output"
+          main_tar="$(find "${outdir}" -maxdepth 1 -type f -name '*.tar.gz' ! -name 'deb-*' | head -n 1)"
+          test -n "${main_tar}"
+          boot_member="$(tar -tf "${main_tar}" | grep -E '(^|/|\.\/)boot-[0-9]+\.[0-9]+\.[0-9]+.*\.tar\.gz$' | head -n 1)"
+          if [ -z "${boot_member}" ]; then
+            echo "Could not locate boot-*.tar.gz inside ${main_tar}"
+            tar -tf "${main_tar}" | sed -n '1,120p'
             exit 1
           fi
-          tar -xOf "${boot_tar}" "${config_name}" > /tmp/kernel-config-check
+          tar -xOf "${main_tar}" "${boot_member}" > /tmp/boot-nested.tar.gz
+
+          config_name="$(tar -tf /tmp/boot-nested.tar.gz | grep -E '(^|/|\.\/)config-[0-9]+\.[0-9]+\.[0-9]+' | head -n 1)"
+          if [ -z "${config_name}" ]; then
+            echo "Could not locate config-* inside nested ${boot_member}"
+            tar -tf /tmp/boot-nested.tar.gz | sed -n '1,120p'
+            exit 1
+          fi
+          tar -xOf /tmp/boot-nested.tar.gz "${config_name}" > /tmp/kernel-config-check
           test -s /tmp/kernel-config-check
           grep -E '^CONFIG_CAN_GS_USB=m$' /tmp/kernel-config-check
           grep -E '^CONFIG_CAN_SLCAN=m$' /tmp/kernel-config-check
@@ -232,16 +241,16 @@ jobs:
         run: |
           set -e
           outdir="/builder/compile-kernel/output"
-          boot_tar="$(find "${outdir}" -maxdepth 2 -type f -name 'boot-*.tar.gz' | head -n 1)"
-          test -n "${boot_tar}"
-
-          exact_version="$(basename "${boot_tar}" | sed -E 's/^boot-([0-9]+\.[0-9]+\.[0-9]+).*/\1/')"
-          test -n "${exact_version}"
-
-          main_tar="$(find "${outdir}" -maxdepth 1 -type f -name '*.tar.gz' ! -name 'boot-*' ! -name 'deb-*' | head -n 1)"
+          main_tar="$(find "${outdir}" -maxdepth 1 -type f -name '*.tar.gz' ! -name 'deb-*' | head -n 1)"
           deb_tar="$(find "${outdir}" -maxdepth 1 -type f -name 'deb-*.tar.gz' | head -n 1)"
           test -n "${main_tar}"
           test -n "${deb_tar}"
+
+          boot_member="$(tar -tf "${main_tar}" | grep -E '(^|/|\.\/)boot-[0-9]+\.[0-9]+\.[0-9]+.*\.tar\.gz$' | head -n 1)"
+          test -n "${boot_member}"
+
+          exact_version="$(basename "${boot_member}" | sed -E 's/^boot-([0-9]+\.[0-9]+\.[0-9]+).*/\1/')"
+          test -n "${exact_version}"
 
           cp -f "${main_tar}" "${outdir}/${exact_version}.tar.gz"
           cp -f "${deb_tar}" "${outdir}/deb-${exact_version}.tar.gz"
