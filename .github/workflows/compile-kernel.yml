@@ -243,7 +243,7 @@ jobs:
           outdir="/builder/compile-kernel/output"
           workdir="/tmp/kernel-release-alias"
           rm -rf "${workdir}"
-          mkdir -p "${workdir}/main" "${workdir}/deb"
+          mkdir -p "${workdir}/main" "${workdir}/deb" "${workdir}/packed"
 
           main_tar="$(find "${outdir}" -maxdepth 1 -type f -name '*.tar.gz' ! -name 'deb-*' | head -n 1)"
           deb_tar="$(find "${outdir}" -maxdepth 1 -type f -name 'deb-*.tar.gz' | head -n 1)"
@@ -268,14 +268,14 @@ jobs:
           exact_version="$(basename "${boot_member}" | sed -E 's/^boot-([0-9]+\.[0-9]+\.[0-9]+).*/\1/')"
           test -n "${exact_version}"
 
-          (
-            cd "${main_root}"
-            sudo tar -czf "${outdir}/${exact_version}.tar.gz" ./*
-          )
+          mkdir -p "${workdir}/packed/${exact_version}" "${workdir}/packed/deb-${exact_version}"
+          cp -af "${main_root}/." "${workdir}/packed/${exact_version}/"
+          cp -af "${deb_root}/." "${workdir}/packed/deb-${exact_version}/"
 
           (
-            cd "${deb_root}"
-            sudo tar -czf "${outdir}/deb-${exact_version}.tar.gz" ./*
+            cd "${workdir}/packed"
+            sudo tar -czf "${outdir}/${exact_version}.tar.gz" "${exact_version}"
+            sudo tar -czf "${outdir}/deb-${exact_version}.tar.gz" "deb-${exact_version}"
           )
 
           echo "EXACT_KERNEL_VERSION=${exact_version}" >> ${GITHUB_ENV}
@@ -288,7 +288,7 @@ jobs:
           tag: kernel_stable
           artifacts: /builder/compile-kernel/output/*
           allowUpdates: true
-          removeArtifacts: false
+          removeArtifacts: true
           replacesArtifacts: true
           makeLatest: false
           token: ${{ secrets.GITHUB_TOKEN }}
