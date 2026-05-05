@@ -253,19 +253,28 @@ jobs:
           tar -xzf "${main_tar}" -C "${workdir}/main"
           tar -xzf "${deb_tar}" -C "${workdir}/deb"
 
-          boot_member="$(find "${workdir}/main" -type f -name 'boot-*.tar.gz' | head -n 1)"
+          main_root="${workdir}/main"
+          deb_root="${workdir}/deb"
+          if [ -d "${workdir}/main/6.12.y" ]; then
+            main_root="${workdir}/main/6.12.y"
+          fi
+          if [ -d "${workdir}/deb/6.12.y" ]; then
+            deb_root="${workdir}/deb/6.12.y"
+          fi
+
+          boot_member="$(find "${main_root}" -maxdepth 1 -type f -name 'boot-*.tar.gz' | head -n 1)"
           test -n "${boot_member}"
 
           exact_version="$(basename "${boot_member}" | sed -E 's/^boot-([0-9]+\.[0-9]+\.[0-9]+).*/\1/')"
           test -n "${exact_version}"
 
           (
-            cd "${workdir}/main"
+            cd "${main_root}"
             sudo tar -czf "${outdir}/${exact_version}.tar.gz" ./*
           )
 
           (
-            cd "${workdir}/deb"
+            cd "${deb_root}"
             sudo tar -czf "${outdir}/deb-${exact_version}.tar.gz" ./*
           )
 
