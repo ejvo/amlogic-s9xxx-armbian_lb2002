@@ -25,9 +25,10 @@ on:
       armbian_kernel:
         description: "Select kernel version."
         required: false
-        default: "6.12.y"
+        default: "6.12.85"
         type: choice
         options:
+          - 6.12.85
           - 6.12.y
           - 6.18.y
           - 6.12.y_6.18.y
@@ -177,7 +178,7 @@ jobs:
             -r "${{ inputs.kernel_repo }}" \
             -u "${{ inputs.kernel_usage }}" \
             -k "${{ inputs.armbian_kernel }}" \
-            -a "true" \
+            -a "false" \
             -t "${{ inputs.armbian_fstype }}" \
             -n "${{ inputs.builder_name }}"
 
