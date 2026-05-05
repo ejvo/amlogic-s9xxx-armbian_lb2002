@@ -268,13 +268,13 @@ jobs:
             echo "Real kernel version determined: ${exact_version}"
           fi
 
-          # Точная версия
-          cp -f "${main_tar}" "${outdir}/${exact_version}.tar.gz"
-          cp -f "${deb_tar}" "${outdir}/deb-${exact_version}.tar.gz"
+          # Точная версия (используем sudo для прав)
+          sudo cp -f "${main_tar}" "${outdir}/${exact_version}.tar.gz"
+          sudo cp -f "${deb_tar}" "${outdir}/deb-${exact_version}.tar.gz"
 
-          # Wildcard-псевдонимы
-          cp -f "${main_tar}" "${outdir}/${wildcard_version}.tar.gz"
-          cp -f "${deb_tar}" "${outdir}/deb-${wildcard_version}.tar.gz"
+          # Wildcard-псевдонимы (используем sudo для прав)
+          sudo cp -f "${main_tar}" "${outdir}/${wildcard_version}.tar.gz"
+          sudo cp -f "${deb_tar}" "${outdir}/deb-${wildcard_version}.tar.gz"
 
           echo "EXACT_KERNEL_VERSION=${exact_version}" >> ${GITHUB_ENV}
           ls -lh "${outdir}"
