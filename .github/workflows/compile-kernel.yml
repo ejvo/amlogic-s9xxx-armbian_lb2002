@@ -252,8 +252,14 @@ jobs:
           exact_version="$(basename "${boot_member}" | sed -E 's/^boot-([0-9]+\.[0-9]+\.[0-9]+).*/\1/')"
           test -n "${exact_version}"
 
+          # Точная версия ядра
           cp -f "${main_tar}" "${outdir}/${exact_version}.tar.gz"
           cp -f "${deb_tar}" "${outdir}/deb-${exact_version}.tar.gz"
+
+          # Wildcard-псевдонимы, необходимые для скрипта rebuild (например, 6.12.y.tar.gz)
+          wildcard_version="${{ inputs.kernel_version }}"
+          cp -f "${main_tar}" "${outdir}/${wildcard_version}.tar.gz"
+          cp -f "${deb_tar}" "${outdir}/deb-${wildcard_version}.tar.gz"
 
           echo "EXACT_KERNEL_VERSION=${exact_version}" >> ${GITHUB_ENV}
           ls -lh "${outdir}"
