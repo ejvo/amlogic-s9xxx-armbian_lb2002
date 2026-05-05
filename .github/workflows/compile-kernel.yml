@@ -261,16 +261,16 @@ jobs:
 
           (
             cd "${workdir}/main"
-            tar -czf "${outdir}/${exact_version}.tar.gz" ./*
+            sudo tar -czf "${outdir}/${exact_version}.tar.gz" ./*
           )
 
           (
             cd "${workdir}/deb"
-            tar -czf "${outdir}/deb-${exact_version}.tar.gz" ./*
+            sudo tar -czf "${outdir}/deb-${exact_version}.tar.gz" ./*
           )
 
           echo "EXACT_KERNEL_VERSION=${exact_version}" >> ${GITHUB_ENV}
-          ls -lh "${outdir}"
+          sudo ls -lh "${outdir}"
 
       - name: Upload Kernel to Release
         uses: ncipollo/release-action@main
