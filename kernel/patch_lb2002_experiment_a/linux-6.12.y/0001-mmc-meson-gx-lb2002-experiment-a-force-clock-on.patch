@@ -1,6 +1,6 @@
 --- a/drivers/mmc/host/meson-gx-mmc.c
 +++ b/drivers/mmc/host/meson-gx-mmc.c
-@@ -639,12 +639,20 @@ static void meson_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
+@@ -639,11 +639,21 @@ static void meson_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
  	val = readl(host->regs + SD_EMMC_CFG);
  	val &= ~CFG_BUS_WIDTH_MASK;
  	val |= FIELD_PREP(CFG_BUS_WIDTH_MASK, bus_width);
@@ -37,7 +37,7 @@
  
  	writel(cfg, host->regs + SD_EMMC_CFG);
  }
-@@ -1086,22 +1088,35 @@ static int meson_mmc_voltage_switch(struct mmc_host *mmc, struct mmc_ios *ios)
+@@ -1086,23 +1088,37 @@ static int meson_mmc_voltage_switch(struct mmc_host *mmc, struct mmc_ios *ios)
  {
  	int ret;
 +	struct meson_host *host = mmc_priv(mmc);
