@@ -34,7 +34,7 @@
  
  	writel(cfg, host->regs + SD_EMMC_CFG);
  }
-@@ -1086,23 +1088,34 @@ static int meson_mmc_voltage_switch(struct mmc_host *mmc, struct mmc_ios *ios)
+@@ -1086,23 +1086,34 @@ static int meson_mmc_voltage_switch(struct mmc_host *mmc, struct mmc_ios *ios)
  {
  	int ret;
 +	struct meson_host *host = mmc_priv(mmc);
