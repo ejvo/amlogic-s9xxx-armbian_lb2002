@@ -1,6 +1,6 @@
 --- a/drivers/mmc/host/meson-gx-mmc.c
 +++ b/drivers/mmc/host/meson-gx-mmc.c
-@@ -639,11 +639,21 @@ static void meson_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
+@@ -639,12 +639,18 @@ static void meson_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
  	val = readl(host->regs + SD_EMMC_CFG);
  	val &= ~CFG_BUS_WIDTH_MASK;
  	val |= FIELD_PREP(CFG_BUS_WIDTH_MASK, bus_width);
@@ -12,19 +12,16 @@
  		dev_err(host->dev, "Failed to set clock: %d\n", err);
  
 +	val = readl(host->regs + SD_EMMC_CFG);
-+	dev_warn(host->dev, "lb2002-expa set-ios before cfg=%#08x signal=%u timing=%u ios_clock=%u actual_clock=%u\n",
-+		 val, ios->signal_voltage, ios->timing, ios->clock, host->mmc->actual_clock);
 +	val &= ~CFG_AUTO_CLK;
 +	val &= ~CFG_STOP_CLOCK;
 +	val |= CFG_CLK_ALWAYS_ON;
 +	writel(val, host->regs + SD_EMMC_CFG);
-+	dev_warn(host->dev, "lb2002-expa set-ios after cfg=%#08x\n",
-+		 readl(host->regs + SD_EMMC_CFG));
++	dev_warn(host->dev, "lb2002-expa set-ios cfg=%#08x signal=%u timing=%u\n", val, ios->signal_voltage, ios->timing);
 +
  	dev_dbg(host->dev, "SD_EMMC_CFG: 0x%08x\n", val);
  }
  
-@@ -1064,9 +1064,11 @@ static void meson_mmc_cfg_init(struct meson_host *host)
+@@ -1064,10 +1064,12 @@ static void meson_mmc_cfg_init(struct meson_host *host)
  	cfg |= FIELD_PREP(CFG_RESP_TIMEOUT_MASK,
  			  ilog2(SD_EMMC_CFG_RESP_TIMEOUT));
  	cfg |= FIELD_PREP(CFG_RC_CC_MASK, ilog2(SD_EMMC_CFG_CMD_GAP));
@@ -37,19 +34,18 @@
  
  	writel(cfg, host->regs + SD_EMMC_CFG);
  }
-@@ -1086,23 +1088,37 @@ static int meson_mmc_voltage_switch(struct mmc_host *mmc, struct mmc_ios *ios)
+@@ -1086,23 +1088,34 @@ static int meson_mmc_voltage_switch(struct mmc_host *mmc, struct mmc_ios *ios)
  {
  	int ret;
 +	struct meson_host *host = mmc_priv(mmc);
 +	u32 cfg;
  
 +	cfg = readl(host->regs + SD_EMMC_CFG);
-+	dev_warn(host->dev, "lb2002-expa pre-voltage-switch cfg=%#08x signal=%u timing=%u actual_clock=%u\n",
-+		 cfg, ios->signal_voltage, ios->timing, host->mmc->actual_clock);
 +	cfg &= ~CFG_AUTO_CLK;
 +	cfg &= ~CFG_STOP_CLOCK;
 +	cfg |= CFG_CLK_ALWAYS_ON;
 +	writel(cfg, host->regs + SD_EMMC_CFG);
++	dev_warn(host->dev, "lb2002-expa voltage-switch signal=%u timing=%u cfg=%#08x\n", ios->signal_voltage, ios->timing, cfg);
 +
  	/* vqmmc regulator is available */
  	if (!IS_ERR(mmc->supply.vqmmc)) {
@@ -61,8 +57,7 @@
  		 * of your own regulator constraints
  		 */
  		ret = mmc_regulator_set_vqmmc(mmc, ios);
-+		dev_warn(host->dev, "lb2002-expa post-voltage-switch ret=%d cfg=%#08x\n",
-+			 ret, readl(host->regs + SD_EMMC_CFG));
++		dev_warn(host->dev, "lb2002-expa voltage-switch ret=%d\n", ret);
  		return ret < 0 ? ret : 0;
  	}
  
@@ -70,7 +65,6 @@
  	if (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_330)
  		return 0;
  
-+	dev_warn(host->dev, "lb2002-expa unsupported fixed-voltage signal=%u\n",
-+		 ios->signal_voltage);
++	dev_warn(host->dev, "lb2002-expa voltage-switch fixed signal=%u\n", ios->signal_voltage);
  	return -EINVAL;
  }
