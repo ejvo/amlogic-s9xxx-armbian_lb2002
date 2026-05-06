@@ -1,15 +1,10 @@
+diff --git a/drivers/mmc/host/meson-gx-mmc.c b/drivers/mmc/host/meson-gx-mmc.c
+index a399060..d5cb6dd 100644
 --- a/drivers/mmc/host/meson-gx-mmc.c
 +++ b/drivers/mmc/host/meson-gx-mmc.c
-@@ -639,12 +639,18 @@ static void meson_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
- 	val = readl(host->regs + SD_EMMC_CFG);
- 	val &= ~CFG_BUS_WIDTH_MASK;
- 	val |= FIELD_PREP(CFG_BUS_WIDTH_MASK, bus_width);
- 	writel(val, host->regs + SD_EMMC_CFG);
- 
- 	meson_mmc_check_resampling(host, ios);
- 	err = meson_mmc_prepare_ios_clock(host, ios);
+@@ -647,6 +647,13 @@ static void meson_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
  	if (err)
- 		dev_err(host->dev, "Failed to set clock: %d\n", err);
+ 		dev_err(host->dev, "Failed to set clock: %d\n,", err);
  
 +	val = readl(host->regs + SD_EMMC_CFG);
 +	val &= ~CFG_AUTO_CLK;
@@ -18,12 +13,10 @@
 +	writel(val, host->regs + SD_EMMC_CFG);
 +	dev_warn(host->dev, "lb2002-expa set-ios cfg=%#08x signal=%u timing=%u\n", val, ios->signal_voltage, ios->timing);
 +
- 	dev_dbg(host->dev, "SD_EMMC_CFG: 0x%08x\n", val);
+ 	dev_dbg(host->dev, "SD_EMMC_CFG:  0x%08x\n", val);
  }
  
-@@ -1064,10 +1064,12 @@ static void meson_mmc_cfg_init(struct meson_host *host)
- 	cfg |= FIELD_PREP(CFG_RESP_TIMEOUT_MASK,
- 			  ilog2(SD_EMMC_CFG_RESP_TIMEOUT));
+@@ -1067,6 +1074,8 @@ static void meson_mmc_cfg_init(struct meson_host *host)
  	cfg |= FIELD_PREP(CFG_RC_CC_MASK, ilog2(SD_EMMC_CFG_CMD_GAP));
  	cfg |= FIELD_PREP(CFG_BLK_LEN_MASK, ilog2(SD_EMMC_CFG_BLK_SIZE));
  
@@ -32,28 +25,23 @@
  	/* abort chain on R/W errors */
  	cfg |= CFG_ERR_ABORT;
  
- 	writel(cfg, host->regs + SD_EMMC_CFG);
- }
-@@ -1086,23 +1086,34 @@ static int meson_mmc_voltage_switch(struct mmc_host *mmc, struct mmc_ios *ios)
+@@ -1087,6 +1096,15 @@ static int meson_mmc_card_busy(struct mmc_host *mmc)
+ static int meson_mmc_voltage_switch(struct mmc_host *mmc, struct mmc_ios *ios)
  {
  	int ret;
 +	struct meson_host *host = mmc_priv(mmc);
 +	u32 cfg;
- 
++
 +	cfg = readl(host->regs + SD_EMMC_CFG);
 +	cfg &= ~CFG_AUTO_CLK;
 +	cfg &= ~CFG_STOP_CLOCK;
 +	cfg |= CFG_CLK_ALWAYS_ON;
 +	writel(cfg, host->regs + SD_EMMC_CFG);
 +	dev_warn(host->dev, "lb2002-expa voltage-switch signal=%u timing=%u cfg=%#08x\n", ios->signal_voltage, ios->timing, cfg);
-+
+ 
  	/* vqmmc regulator is available */
  	if (!IS_ERR(mmc->supply.vqmmc)) {
- 		/*
- 		 * The usual amlogic setup uses a GPIO to switch from one
- 		 * regulator to the other. While the voltage ramp up is
- 		 * pretty fast, care must be taken when switching from 3.3v
- 		 * to 1.8v. Please make sure the regulator framework is aware
+@@ -1098,6 +1116,7 @@ static int meson_mmc_voltage_switch(struct mmc_host *mmc, struct mmc_ios *ios)
  		 * of your own regulator constraints
  		 */
  		ret = mmc_regulator_set_vqmmc(mmc, ios);
@@ -61,10 +49,11 @@
  		return ret < 0 ? ret : 0;
  	}
  
- 	/* no vqmmc regulator, assume fixed regulator at 3/3.3V */
+@@ -1105,6 +1124,7 @@ static int meson_mmc_voltage_switch(struct mmc_host *mmc, struct mmc_ios *ios)
  	if (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_330)
  		return 0;
  
 +	dev_warn(host->dev, "lb2002-expa voltage-switch fixed signal=%u\n", ios->signal_voltage);
  	return -EINVAL;
  }
+ 
