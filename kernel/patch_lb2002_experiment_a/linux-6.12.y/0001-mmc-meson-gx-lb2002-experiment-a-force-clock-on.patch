@@ -1,1 +1,140 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: OpenAI Codex <noreply@example.com>
+Date: Wed, 6 May 2026 12:00:00 +0000
+Subject: [PATCH] mmc: meson-gx: add LB2002 experiment A auto-clock test
 
+This is a diagnostic experiment for LB2002/UWE5621DS SDIO bring-up.
+
+Observed Android clue:
+  close auto_clk if use UWE5621
+
+Observed mainline failure:
+  meson-gx-mmc ffe05000.sd: no support for card's volts
+  mmc0: error -22 whilst initialising SDIO card
+
+This patch does not claim to fix the issue. It forces a single test
+condition:
+  - keep CFG_CLK_ALWAYS_ON asserted
+  - clear CFG_AUTO_CLK
+  - clear CFG_STOP_CLOCK
+
+It also emits focused logs around probe, set_ios, and voltage-switch so the
+next hardware test can determine whether clocking preconditions change the
+early SDIO/OCR failure mode.
+---
+ drivers/mmc/host/meson-gx-mmc.c | 57 ++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 57 insertions(+)
+
+diff --git a/drivers/mmc/host/meson-gx-mmc.c b/drivers/mmc/host/meson-gx-mmc.c
+index 111111111111..222222222222 100644
+--- a/drivers/mmc/host/meson-gx-mmc.c
++++ b/drivers/mmc/host/meson-gx-mmc.c
+@@ -349,6 +349,32 @@ static void meson_mmc_clk_ungate(struct meson_host *host)
+ 	writel(cfg, host->regs + SD_EMMC_CFG);
+ }
+ 
++static void meson_mmc_lb2002_experiment_a_auto_clk(struct meson_host *host,
++						   const char *stage,
++						   const struct mmc_ios *ios)
++{
++	u32 cfg, clk;
++	u32 signal_voltage = ios ? ios->signal_voltage : ~0U;
++	u32 timing = ios ? ios->timing : ~0U;
++	u32 ios_clock = ios ? ios->clock : 0;
++
++	cfg = readl(host->regs + SD_EMMC_CFG);
++	clk = readl(host->regs + SD_EMMC_CLOCK);
++
++	dev_warn(host->dev,
++		 "lb2002-expa %s before cfg=%#08x clk=%#08x signal=%u timing=%u ios_clock=%u actual_clock=%u\n",
++		 stage, cfg, clk, signal_voltage, timing, ios_clock,
++		 host->mmc->actual_clock);
++
++	cfg &= ~CFG_AUTO_CLK;
++	cfg &= ~CFG_STOP_CLOCK;
++	cfg |= CFG_CLK_ALWAYS_ON;
++	writel(cfg, host->regs + SD_EMMC_CFG);
++
++	clk |= CLK_ALWAYS_ON(host);
++	writel(clk, host->regs + SD_EMMC_CLOCK);
++
++	dev_warn(host->dev, "lb2002-expa %s after cfg=%#08x clk=%#08x\n",
++		 stage, readl(host->regs + SD_EMMC_CFG), readl(host->regs + SD_EMMC_CLOCK));
++}
++
+ static int meson_mmc_clk_set(struct meson_host *host, unsigned long rate,
+ 			     bool ddr)
+ {
+@@ -649,6 +675,11 @@ static void meson_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
+ 	meson_mmc_check_resampling(host, ios);
+ 	err = meson_mmc_prepare_ios_clock(host, ios);
+ 	if (err) {
++		dev_warn(host->dev,
++			 "lb2002-expa set-ios clock preparation failed: %d\n",
++			 err);
+ 		dev_err(host->dev, "Failed to set clock: %d\n", err);
++	}
++
++	meson_mmc_lb2002_experiment_a_auto_clk(host, "set-ios", ios);
+ 
+ 	dev_dbg(host->dev, "SD_EMMC_CFG: 0x%08x\n", val);
+ }
+@@ -1069,8 +1100,12 @@ static void meson_mmc_cfg_init(struct meson_host *host)
+ 	cfg |= FIELD_PREP(CFG_RC_CC_MASK, ilog2(SD_EMMC_CFG_CMD_GAP));
+ 	cfg |= FIELD_PREP(CFG_BLK_LEN_MASK, ilog2(SD_EMMC_CFG_BLK_SIZE));
+ 
++	/* Experiment A: keep controller clocking conservative and explicit. */
++	cfg &= ~CFG_AUTO_CLK;
++	cfg |= CFG_CLK_ALWAYS_ON;
++
+ 	/* abort chain on R/W errors */
+ 	cfg |= CFG_ERR_ABORT;
++
+ 	writel(cfg, host->regs + SD_EMMC_CFG);
+ }
+ 
+@@ -1085,6 +1120,9 @@ static int meson_mmc_voltage_switch(struct mmc_host *mmc, struct mmc_ios *ios)
+ {
+ 	int ret;
+ 
++	struct meson_host *host = mmc_priv(mmc);
++	meson_mmc_lb2002_experiment_a_auto_clk(host, "pre-voltage-switch", ios);
++
+ 	/* vqmmc regulator is available */
+ 	if (!IS_ERR(mmc->supply.vqmmc)) {
+ 		/*
+@@ -1097,12 +1135,22 @@ static int meson_mmc_voltage_switch(struct mmc_host *mmc, struct mmc_ios *ios)
+ 		 * of your own regulator constraints
+ 		 */
+ 		ret = mmc_regulator_set_vqmmc(mmc, ios);
++		meson_mmc_lb2002_experiment_a_auto_clk(host, "post-voltage-switch", ios);
++		if (ret < 0)
++			dev_warn(host->dev, "lb2002-expa voltage-switch returned %d\n", ret);
+ 		return ret < 0 ? ret : 0;
+ 	}
+ 
+ 	/* no vqmmc regulator, assume fixed regulator at 3/3.3V */
+ 	if (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_330) {
++		meson_mmc_lb2002_experiment_a_auto_clk(host,
++						       "fixed-330-voltage-switch",
++						       ios);
+ 		return 0;
++	}
+ 
++	dev_warn(host->dev,
++		 "lb2002-expa unsupported fixed-voltage switch signal=%u\n",
++		 ios->signal_voltage);
+ 	return -EINVAL;
+ }
+@@ -1210,6 +1258,9 @@ static int meson_mmc_probe(struct platform_device *pdev)
+ 	/* set config to sane default */
+ 	meson_mmc_cfg_init(host);
+ 
++	/* Experiment A: enforce and log clock state immediately after init. */
++	meson_mmc_lb2002_experiment_a_auto_clk(host, "probe-init", NULL);
++
+ 	/* Stop execution */
+ 	writel(0, host->regs + SD_EMMC_START);
+ 
+-- 
+2.49.0
