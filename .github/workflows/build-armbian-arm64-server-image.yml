@@ -169,8 +169,18 @@ jobs:
 
           custom_files="${{ github.workspace }}/${{ inputs.armbian_files }}"
           target_common="rebuild/build-armbian/armbian-files/common-files"
-          mkdir -p "${target_common}"
-          cp -avf --no-preserve=ownership "${custom_files}/." "${target_common}/"
+          target_bootfs="rebuild/build-armbian/armbian-files/different-files/${{ inputs.armbian_board }}/bootfs"
+          mkdir -p "${target_common}" "${target_bootfs}"
+
+          # Files under boot/ must land on the FAT boot partition for U-Boot.
+          if [ -d "${custom_files}/boot" ]; then
+            cp -avf --no-preserve=ownership "${custom_files}/boot/." "${target_bootfs}/"
+          fi
+
+          # Any non-boot overlay content remains common rootfs content.
+          while IFS= read -r item; do
+            cp -avf --no-preserve=ownership "${item}" "${target_common}/"
+          done < <(find "${custom_files}" -mindepth 1 -maxdepth 1 ! -name boot)
 
           cd rebuild
           sudo ./rebuild \
