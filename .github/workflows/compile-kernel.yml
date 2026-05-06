@@ -181,6 +181,7 @@ jobs:
           kernel_toolchain: ${{ inputs.kernel_toolchain }}
           kernel_config: kernel/config_lb2002
           kernel_patch: kernel/patch_lb2002_experiment_a
+          auto_patch: true
           config_flavor: ""
           ccache_clear: ${{ inputs.ccache_clear }}
           docker_hostpath: /builder
