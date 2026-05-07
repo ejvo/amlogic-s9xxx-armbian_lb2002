@@ -1,14 +1,11 @@
 diff --git a/drivers/mmc/core/core.c b/drivers/mmc/core/core.c
-index 225f4c4..58750b6 100644
+index f29dba5..f1537fa 100644
 --- a/drivers/mmc/core/core.c
 +++ b/drivers/mmc/core/core.c
-@@ -51,7 +51,21 @@
- #define MMC_ERASE_TIMEOUT_MS	(60 * 1000) /* 60 s */
- #define SD_DISCARD_TIMEOUT_MS	(250)
+@@ -53,6 +53,20 @@
  
--static const unsigned freqs[] = { 400000, 300000, 200000, 100000 };
-+static const unsigned freqs[] = { 400000, 300000, 200000, 100000 };
-+
+ static const unsigned freqs[] = { 400000, 300000, 200000, 100000 };
+ 
 +static const char *mmc_lb2002_expc_signal_voltage_name(int signal_voltage)
 +{
 +	switch (signal_voltage) {
@@ -22,6 +19,186 @@ index 225f4c4..58750b6 100644
 +		return "unknown";
 +	}
 +}
- 
++
  /*
   * Enabling software CRCs on the data blocks can be a significant (30%)
+  * performance cost, and for other reasons may not always be desired.
+@@ -1115,6 +1129,7 @@ struct device_node *mmc_of_find_child_device(struct mmc_host *host,
+ u32 mmc_select_voltage(struct mmc_host *host, u32 ocr)
+ {
+ 	int bit;
++	u32 raw_ocr = ocr;
+ 
+ 	/*
+ 	 * Sanity check the voltages that the card claims to
+@@ -1127,7 +1142,15 @@ u32 mmc_select_voltage(struct mmc_host *host, u32 ocr)
+ 	}
+ 
+ 	ocr &= host->ocr_avail;
++	dev_warn(mmc_dev(host),
++		 "lb2002-expc select-voltage raw_ocr=%#x host_ocr_avail=%#x masked_ocr=%#x caps=%#x caps2=%#x ios_vdd=%u signal=%s\n",
++		 raw_ocr, host->ocr_avail, ocr, host->caps, host->caps2,
++		 host->ios.vdd,
++		 mmc_lb2002_expc_signal_voltage_name(host->ios.signal_voltage));
+ 	if (!ocr) {
++		dev_warn(mmc_dev(host),
++			 "lb2002-expc select-voltage reject raw_ocr=%#x host_ocr_avail=%#x\n",
++			 raw_ocr, host->ocr_avail);
+ 		dev_warn(mmc_dev(host), "no support for card's volts\n");
+ 		return 0;
+ 	}
+@@ -1149,6 +1172,10 @@ u32 mmc_select_voltage(struct mmc_host *host, u32 ocr)
+ 			dev_warn(mmc_dev(host), "exceeding card's volts\n");
+ 	}
+ 
++	dev_warn(mmc_dev(host),
++		 "lb2002-expc select-voltage final_ocr=%#x bit=%d ios_vdd=%u signal=%s\n",
++		 ocr, bit, host->ios.vdd,
++		 mmc_lb2002_expc_signal_voltage_name(host->ios.signal_voltage));
+ 	return ocr;
+ }
+ 
+@@ -1157,6 +1184,14 @@ int mmc_set_signal_voltage(struct mmc_host *host, int signal_voltage)
+ 	int err = 0;
+ 	int old_signal_voltage = host->ios.signal_voltage;
+ 
++	dev_warn(mmc_dev(host),
++		 "lb2002-expc signal-voltage request=%s old=%s clock=%u vdd=%u timing=%u bus_width=%u start_sw=%u\n",
++		 mmc_lb2002_expc_signal_voltage_name(signal_voltage),
++		 mmc_lb2002_expc_signal_voltage_name(old_signal_voltage),
++		 host->ios.clock, host->ios.vdd, host->ios.timing,
++		 host->ios.bus_width,
++		 host->ops->start_signal_voltage_switch ? 1 : 0);
++
+ 	host->ios.signal_voltage = signal_voltage;
+ 	if (host->ops->start_signal_voltage_switch)
+ 		err = host->ops->start_signal_voltage_switch(host, &host->ios);
+@@ -1164,6 +1199,12 @@ int mmc_set_signal_voltage(struct mmc_host *host, int signal_voltage)
+ 	if (err)
+ 		host->ios.signal_voltage = old_signal_voltage;
+ 
++	dev_warn(mmc_dev(host),
++		 "lb2002-expc signal-voltage result=%d now=%s restored=%s clock=%u vdd=%u\n",
++		 err,
++		 mmc_lb2002_expc_signal_voltage_name(host->ios.signal_voltage),
++		 mmc_lb2002_expc_signal_voltage_name(old_signal_voltage),
++		 host->ios.clock, host->ios.vdd);
+ 	return err;
+ 
+ }
+@@ -1183,6 +1224,12 @@ int mmc_host_set_uhs_voltage(struct mmc_host *host)
+ {
+ 	u32 clock;
+ 
++	dev_warn(mmc_dev(host),
++		 "lb2002-expc uhs-voltage entry clock=%u signal=%s vdd=%u timing=%u bus_width=%u\n",
++		 host->ios.clock,
++		 mmc_lb2002_expc_signal_voltage_name(host->ios.signal_voltage),
++		 host->ios.vdd, host->ios.timing, host->ios.bus_width);
++
+ 	/*
+ 	 * During a signal voltage level switch, the clock must be gated
+ 	 * for 5 ms according to the SD spec
+@@ -1191,8 +1238,12 @@ int mmc_host_set_uhs_voltage(struct mmc_host *host)
+ 	host->ios.clock = 0;
+ 	mmc_set_ios(host);
+ 
+-	if (mmc_set_signal_voltage(host, MMC_SIGNAL_VOLTAGE_180))
++	if (mmc_set_signal_voltage(host, MMC_SIGNAL_VOLTAGE_180)) {
++		dev_warn(mmc_dev(host),
++			 "lb2002-expc uhs-voltage switch-to-1.8 failed clock=%u vdd=%u\n",
++			 host->ios.clock, host->ios.vdd);
+ 		return -EAGAIN;
++	}
+ 
+ 	/* Keep clock gated for at least 10 ms, though spec only says 5 ms */
+ 	mmc_delay(10);
+diff --git a/drivers/mmc/host/meson-gx-mmc.c b/drivers/mmc/host/meson-gx-mmc.c
+index fc1a5b3..d43c113 100644
+--- a/drivers/mmc/host/meson-gx-mmc.c
++++ b/drivers/mmc/host/meson-gx-mmc.c
+@@ -350,6 +350,27 @@ static void meson_mmc_clk_ungate(struct meson_host *host)
+ 	writel(cfg, host->regs + SD_EMMC_CFG);
+ }
+ 
++static void meson_mmc_lb2002_expc_trace(struct meson_host *host,
++					struct mmc_ios *ios,
++					const char *where)
++{
++	u32 gclock, gadjust, cfg, status;
++
++	gclock = readl(host->regs + SD_EMMC_CLOCK);
++	gadjust = readl(host->regs + host->data->adjust);
++	cfg = readl(host->regs + SD_EMMC_CFG);
++	status = readl(host->regs + SD_EMMC_STATUS);
++	dev_warn(host->dev,
++		 "lb2002-expc %s gclock=%#08x gadjust=%#08x cfg=%#08x status=%#08x ios_clock=%u ios_signal=%u ios_timing=%u ios_vdd=%u ios_power=%u ios_bus_width=%u\n",
++		 where, gclock, gadjust, cfg, status,
++		 ios ? ios->clock : 0,
++		 ios ? ios->signal_voltage : 0,
++		 ios ? ios->timing : 0,
++		 ios ? ios->vdd : 0,
++		 ios ? ios->power_mode : 0,
++		 ios ? ios->bus_width : 0);
++}
++
+ static int meson_mmc_clk_set(struct meson_host *host, unsigned long rate,
+ 			     bool ddr)
+ {
+@@ -597,6 +618,8 @@ static void meson_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
+ 	u32 bus_width, val;
+ 	int err;
+ 
++	meson_mmc_lb2002_expc_trace(host, ios, "set-ios entry");
++
+ 	/*
+ 	 * GPIO regulator, only controls switching between 1v8 and
+ 	 * 3v3, doesn't support MMC_POWER_OFF, MMC_POWER_ON.
+@@ -647,6 +670,7 @@ static void meson_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
+ 	if (err)
+ 		dev_err(host->dev, "Failed to set clock: %d\n,", err);
+ 
++	meson_mmc_lb2002_expc_trace(host, ios, "set-ios after-clock");
+ 	dev_dbg(host->dev, "SD_EMMC_CFG:  0x%08x\n", val);
+ }
+ 
+@@ -1086,8 +1110,11 @@ static int meson_mmc_card_busy(struct mmc_host *mmc)
+ 
+ static int meson_mmc_voltage_switch(struct mmc_host *mmc, struct mmc_ios *ios)
+ {
++	struct meson_host *host = mmc_priv(mmc);
+ 	int ret;
+ 
++	meson_mmc_lb2002_expc_trace(host, ios, "voltage-switch entry");
++
+ 	/* vqmmc regulator is available */
+ 	if (!IS_ERR(mmc->supply.vqmmc)) {
+ 		/*
+@@ -1098,13 +1125,26 @@ static int meson_mmc_voltage_switch(struct mmc_host *mmc, struct mmc_ios *ios)
+ 		 * of your own regulator constraints
+ 		 */
+ 		ret = mmc_regulator_set_vqmmc(mmc, ios);
++		meson_mmc_lb2002_expc_trace(host, ios, "voltage-switch vqmmc");
++		dev_warn(host->dev,
++			 "lb2002-expc voltage-switch vqmmc ret=%d signal=%u\n",
++			 ret, ios->signal_voltage);
+ 		return ret < 0 ? ret : 0;
+ 	}
+ 
+ 	/* no vqmmc regulator, assume fixed regulator at 3/3.3V */
+-	if (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_330)
++	if (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_330) {
++		meson_mmc_lb2002_expc_trace(host, ios, "voltage-switch fixed-330");
++		dev_warn(host->dev,
++			 "lb2002-expc voltage-switch fixed ret=0 signal=%u\n",
++			 ios->signal_voltage);
+ 		return 0;
++	}
+ 
++	meson_mmc_lb2002_expc_trace(host, ios, "voltage-switch fixed-reject");
++	dev_warn(host->dev,
++		 "lb2002-expc voltage-switch fixed ret=-22 signal=%u\n",
++		 ios->signal_voltage);
+ 	return -EINVAL;
+ }
+ 
