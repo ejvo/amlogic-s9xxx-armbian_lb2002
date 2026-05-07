@@ -195,12 +195,34 @@ jobs:
           echo "PACKAGED_OUTPUTPATH=/builder/rebuild/build/output/images" >> ${GITHUB_ENV}
           echo "PACKAGED_STATUS=success" >> ${GITHUB_ENV}
 
+      - name: Stage final rebuilt image only
+        id: stage_artifacts
+        if: ${{ steps.rebuild.outcome == 'success' && !cancelled() }}
+        run: |
+          set -e
+          src="${PACKAGED_OUTPUTPATH}"
+          dst="/builder/final-artifacts"
+          rm -rf "${dst}"
+          mkdir -p "${dst}"
+
+          # Keep only the rebuilt public image artifacts, never the injected base image.
+          find "${src}" -maxdepth 1 -type f -name 'Armbian_*.img.gz' ! -name 'Armbian-unofficial_*' -exec cp -f {} "${dst}/" \;
+
+          if [ "$(find "${dst}" -maxdepth 1 -type f | wc -l)" -eq 0 ]; then
+            echo "No rebuilt .img.gz found; trying rebuilt .img artifacts."
+            find "${src}" -maxdepth 1 -type f -name 'Armbian_*.img' ! -name 'Armbian-unofficial_*' -exec cp -f {} "${dst}/" \;
+          fi
+
+          echo "Staged artifacts:"
+          find "${dst}" -maxdepth 1 -type f | sort
+          test "$(find "${dst}" -maxdepth 1 -type f | wc -l)" -gt 0
+
+          echo "FINAL_ARTIFACT_PATH=${dst}" >> ${GITHUB_ENV}
+
       - name: Upload rebuilt images artifacts
         uses: actions/upload-artifact@v4
-        if: ${{ steps.rebuild.outcome == 'success' && !cancelled() }}
+        if: ${{ steps.stage_artifacts.outcome == 'success' && !cancelled() }}
         with:
           name: armbian-lb2002-image-${{ inputs.armbian_board }}-${{ inputs.armbian_kernel }}
-          path: |
-            ${{ env.PACKAGED_OUTPUTPATH }}/Armbian_*.img*
-            !${{ env.PACKAGED_OUTPUTPATH }}/Armbian-unofficial_*
+          path: ${{ env.FINAL_ARTIFACT_PATH }}/*
           if-no-files-found: error
