@@ -1,59 +1,62 @@
 diff --git a/drivers/mmc/host/meson-gx-mmc.c b/drivers/mmc/host/meson-gx-mmc.c
-index a399060..d5cb6dd 100644
+index a399060..0de46aa 100644
 --- a/drivers/mmc/host/meson-gx-mmc.c
 +++ b/drivers/mmc/host/meson-gx-mmc.c
-@@ -647,6 +647,13 @@ static void meson_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
+@@ -350,6 +350,37 @@ static void meson_mmc_clk_ungate(struct meson_host *host)
+ 	writel(cfg, host->regs + SD_EMMC_CFG);
+ }
+ 
++static bool meson_mmc_lb2002_expb_is_sdio(struct meson_host *host)
++{
++	return !strcmp(dev_name(host->dev), "ffe05000.sd");
++}
++
++static void meson_mmc_lb2002_expb_apply_android_sdio_regs(struct meson_host *host,
++							  const char *where)
++{
++	u32 gclock, gadjust, cfg;
++
++	if (!meson_mmc_lb2002_expb_is_sdio(host))
++		return;
++
++	gclock = readl(host->regs + SD_EMMC_CLOCK);
++	gadjust = readl(host->regs + host->data->adjust);
++	cfg = readl(host->regs + SD_EMMC_CFG);
++	dev_warn(host->dev,
++		 "lb2002-expb %s before gclock=%#08x gadjust=%#08x cfg=%#08x\n",
++		 where, gclock, gadjust, cfg);
++
++	writel(0x10000345, host->regs + SD_EMMC_CLOCK);
++	writel(0x32000, host->regs + host->data->adjust);
++
++	gclock = readl(host->regs + SD_EMMC_CLOCK);
++	gadjust = readl(host->regs + host->data->adjust);
++	cfg = readl(host->regs + SD_EMMC_CFG);
++	dev_warn(host->dev,
++		 "lb2002-expb %s after gclock=%#08x gadjust=%#08x cfg=%#08x\n",
++		 where, gclock, gadjust, cfg);
++}
++
+ static int meson_mmc_clk_set(struct meson_host *host, unsigned long rate,
+ 			     bool ddr)
+ {
+@@ -647,6 +678,7 @@ static void meson_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
  	if (err)
  		dev_err(host->dev, "Failed to set clock: %d\n,", err);
  
-+	val = readl(host->regs + SD_EMMC_CFG);
-+	val &= ~CFG_AUTO_CLK;
-+	val &= ~CFG_STOP_CLOCK;
-+	val |= CFG_CLK_ALWAYS_ON;
-+	writel(val, host->regs + SD_EMMC_CFG);
-+	dev_warn(host->dev, "lb2002-expa set-ios cfg=%#08x signal=%u timing=%u\n", val, ios->signal_voltage, ios->timing);
-+
++	meson_mmc_lb2002_expb_apply_android_sdio_regs(host, "set-ios");
  	dev_dbg(host->dev, "SD_EMMC_CFG:  0x%08x\n", val);
  }
  
-@@ -1067,6 +1074,8 @@ static void meson_mmc_cfg_init(struct meson_host *host)
- 	cfg |= FIELD_PREP(CFG_RC_CC_MASK, ilog2(SD_EMMC_CFG_CMD_GAP));
- 	cfg |= FIELD_PREP(CFG_BLK_LEN_MASK, ilog2(SD_EMMC_CFG_BLK_SIZE));
+@@ -1086,8 +1118,11 @@ static int meson_mmc_card_busy(struct mmc_host *mmc)
  
-+	cfg &= ~CFG_AUTO_CLK;
-+	cfg |= CFG_CLK_ALWAYS_ON;
- 	/* abort chain on R/W errors */
- 	cfg |= CFG_ERR_ABORT;
- 
-@@ -1087,6 +1096,15 @@ static int meson_mmc_card_busy(struct mmc_host *mmc)
  static int meson_mmc_voltage_switch(struct mmc_host *mmc, struct mmc_ios *ios)
  {
- 	int ret;
 +	struct meson_host *host = mmc_priv(mmc);
-+	u32 cfg;
-+
-+	cfg = readl(host->regs + SD_EMMC_CFG);
-+	cfg &= ~CFG_AUTO_CLK;
-+	cfg &= ~CFG_STOP_CLOCK;
-+	cfg |= CFG_CLK_ALWAYS_ON;
-+	writel(cfg, host->regs + SD_EMMC_CFG);
-+	dev_warn(host->dev, "lb2002-expa voltage-switch signal=%u timing=%u cfg=%#08x\n", ios->signal_voltage, ios->timing, cfg);
+ 	int ret;
  
++	meson_mmc_lb2002_expb_apply_android_sdio_regs(host, "voltage-switch");
++
  	/* vqmmc regulator is available */
  	if (!IS_ERR(mmc->supply.vqmmc)) {
-@@ -1098,6 +1116,7 @@ static int meson_mmc_voltage_switch(struct mmc_host *mmc, struct mmc_ios *ios)
- 		 * of your own regulator constraints
- 		 */
- 		ret = mmc_regulator_set_vqmmc(mmc, ios);
-+		dev_warn(host->dev, "lb2002-expa voltage-switch ret=%d\n", ret);
- 		return ret < 0 ? ret : 0;
- 	}
- 
-@@ -1105,6 +1124,7 @@ static int meson_mmc_voltage_switch(struct mmc_host *mmc, struct mmc_ios *ios)
- 	if (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_330)
- 		return 0;
- 
-+	dev_warn(host->dev, "lb2002-expa voltage-switch fixed signal=%u\n", ios->signal_voltage);
- 	return -EINVAL;
- }
- 
+ 		/*
