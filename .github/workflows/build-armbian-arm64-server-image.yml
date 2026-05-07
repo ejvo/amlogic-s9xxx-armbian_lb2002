@@ -14,7 +14,7 @@ on:
       base_image_url:
         description: "Direct URL to base Armbian .img.gz"
         required: false
-        default: "https://github.com/ophub/amlogic-s9xxx-armbian/releases/download/Armbian_bookworm_arm64_server_2026.05/Armbian_26.05.0_amlogic_s905l3a_bookworm_6.12.85_server_2026.05.01.img.gz"
+        default: "https://github.com/ophub/amlogic-s9xxx-armbian/releases/download/Armbian_26.05.0/Armbian_26.05.0_amlogic_s905l3a_bookworm_6.12.85_server_2026.05.01.img.gz"
       armbian_board:
         description: "Select device board."
         required: false
@@ -200,5 +200,7 @@ jobs:
         if: ${{ steps.rebuild.outcome == 'success' && !cancelled() }}
         with:
           name: armbian-lb2002-image-${{ inputs.armbian_board }}-${{ inputs.armbian_kernel }}
-          path: ${{ env.PACKAGED_OUTPUTPATH }}/*
+          path: |
+            ${{ env.PACKAGED_OUTPUTPATH }}/Armbian_*.img*
+            !${{ env.PACKAGED_OUTPUTPATH }}/Armbian-unofficial_*
           if-no-files-found: error
