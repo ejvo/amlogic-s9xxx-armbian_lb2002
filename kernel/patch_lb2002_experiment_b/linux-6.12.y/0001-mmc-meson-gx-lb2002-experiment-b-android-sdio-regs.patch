@@ -1,1 +1,62 @@
-
+diff --git a/drivers/mmc/host/meson-gx-mmc.c b/drivers/mmc/host/meson-gx-mmc.c
+index a399060..0de46aa 100644
+--- a/drivers/mmc/host/meson-gx-mmc.c
++++ b/drivers/mmc/host/meson-gx-mmc.c
+@@ -350,6 +350,37 @@ static void meson_mmc_clk_ungate(struct meson_host *host)
+ 	writel(cfg, host->regs + SD_EMMC_CFG);
+ }
+ 
++static bool meson_mmc_lb2002_expb_is_sdio(struct meson_host *host)
++{
++	return !strcmp(dev_name(host->dev), "ffe05000.sd");
++}
++
++static void meson_mmc_lb2002_expb_apply_android_sdio_regs(struct meson_host *host,
++							  const char *where)
++{
++	u32 gclock, gadjust, cfg;
++
++	if (!meson_mmc_lb2002_expb_is_sdio(host))
++		return;
++
++	gclock = readl(host->regs + SD_EMMC_CLOCK);
++	gadjust = readl(host->regs + host->data->adjust);
++	cfg = readl(host->regs + SD_EMMC_CFG);
++	dev_warn(host->dev,
++		 "lb2002-expb %s before gclock=%#08x gadjust=%#08x cfg=%#08x\n",
++		 where, gclock, gadjust, cfg);
++
++	writel(0x10000345, host->regs + SD_EMMC_CLOCK);
++	writel(0x32000, host->regs + host->data->adjust);
++
++	gclock = readl(host->regs + SD_EMMC_CLOCK);
++	gadjust = readl(host->regs + host->data->adjust);
++	cfg = readl(host->regs + SD_EMMC_CFG);
++	dev_warn(host->dev,
++		 "lb2002-expb %s after gclock=%#08x gadjust=%#08x cfg=%#08x\n",
++		 where, gclock, gadjust, cfg);
++}
++
+ static int meson_mmc_clk_set(struct meson_host *host, unsigned long rate,
+ 			     bool ddr)
+ {
+@@ -647,6 +678,7 @@ static void meson_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
+ 	if (err)
+ 		dev_err(host->dev, "Failed to set clock: %d\n,", err);
+ 
++	meson_mmc_lb2002_expb_apply_android_sdio_regs(host, "set-ios");
+ 	dev_dbg(host->dev, "SD_EMMC_CFG:  0x%08x\n", val);
+ }
+ 
+@@ -1086,8 +1118,11 @@ static int meson_mmc_card_busy(struct mmc_host *mmc)
+ 
+ static int meson_mmc_voltage_switch(struct mmc_host *mmc, struct mmc_ios *ios)
+ {
++	struct meson_host *host = mmc_priv(mmc);
+ 	int ret;
+ 
++	meson_mmc_lb2002_expb_apply_android_sdio_regs(host, "voltage-switch");
++
+ 	/* vqmmc regulator is available */
+ 	if (!IS_ERR(mmc->supply.vqmmc)) {
+ 		/*
