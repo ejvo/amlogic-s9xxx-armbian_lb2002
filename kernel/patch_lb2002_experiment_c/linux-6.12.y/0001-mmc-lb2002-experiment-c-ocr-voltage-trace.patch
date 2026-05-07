@@ -1,1 +1,27 @@
-
+diff --git a/drivers/mmc/core/core.c b/drivers/mmc/core/core.c
+index 225f4c4..58750b6 100644
+--- a/drivers/mmc/core/core.c
++++ b/drivers/mmc/core/core.c
+@@ -51,7 +51,21 @@
+ #define MMC_ERASE_TIMEOUT_MS	(60 * 1000) /* 60 s */
+ #define SD_DISCARD_TIMEOUT_MS	(250)
+ 
+-static const unsigned freqs[] = { 400000, 300000, 200000, 100000 };
++static const unsigned freqs[] = { 400000, 300000, 200000, 100000 };
++
++static const char *mmc_lb2002_expc_signal_voltage_name(int signal_voltage)
++{
++	switch (signal_voltage) {
++	case MMC_SIGNAL_VOLTAGE_330:
++		return "3.3V";
++	case MMC_SIGNAL_VOLTAGE_180:
++		return "1.8V";
++	case MMC_SIGNAL_VOLTAGE_120:
++		return "1.2V";
++	default:
++		return "unknown";
++	}
++}
+ 
+ /*
+  * Enabling software CRCs on the data blocks can be a significant (30%)
