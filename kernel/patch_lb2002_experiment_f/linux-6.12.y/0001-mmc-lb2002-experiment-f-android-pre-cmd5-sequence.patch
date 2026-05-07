@@ -1,1 +1,107 @@
-
+diff --git a/drivers/mmc/core/sdio.c b/drivers/mmc/core/sdio.c
+index fd5c75a..fd6d080 100644
+--- a/drivers/mmc/core/sdio.c
++++ b/drivers/mmc/core/sdio.c
+@@ -15,6 +15,12 @@
+ #include <linux/mmc/sdio.h>
+ #include <linux/mmc/sdio_func.h>
+ #include <linux/mmc/sdio_ids.h>
++#include <linux/gpio.h>
++#include <linux/delay.h>
++
++#define LB2002_EXPF_WIFI_POWER_GPIO 584
++#define LB2002_EXPF_WIFI_IRQ_GPIO   585
++#define LB2002_EXPF_WIFI_RESET_GPIO 595
+ 
+ #include "core.h"
+ #include "card.h"
+@@ -657,6 +663,77 @@ static int mmc_sdio_pre_init(struct mmc_host *host, u32 ocr,
+  * In the case of a resume, "oldcard" will contain the card
+  * we're trying to reinitialise.
+  */
++static void lb2002_expf_android_pre_cmd5_sequence(struct mmc_host *host)
++{
++	int ret;
++	int pwr_val = -1, rst_val = -1, irq_val = -1;
++
++	if (strcmp(dev_name(mmc_dev(host)), "ffe05000.sd"))
++		return;
++
++	dev_warn(mmc_dev(host),
++		 "lb2002-expf pre-cmd5 begin host_ocr_avail=%#x host_ocr_avail_sdio=%#x f_init=%u\n",
++		 host->ocr_avail, host->ocr_avail_sdio, host->f_init);
++
++	ret = gpio_request(LB2002_EXPF_WIFI_POWER_GPIO, "lb2002-expf-power");
++	if (!ret) {
++		ret = gpio_direction_output(LB2002_EXPF_WIFI_POWER_GPIO, 0);
++		dev_warn(mmc_dev(host),
++			 "lb2002-expf power disable gpio=%d ret=%d\n",
++			 LB2002_EXPF_WIFI_POWER_GPIO, ret);
++		msleep(120);
++		ret = gpio_direction_output(LB2002_EXPF_WIFI_POWER_GPIO, 1);
++		dev_warn(mmc_dev(host),
++			 "lb2002-expf power enable gpio=%d ret=%d\n",
++			 LB2002_EXPF_WIFI_POWER_GPIO, ret);
++		msleep(120);
++		pwr_val = gpio_get_value(LB2002_EXPF_WIFI_POWER_GPIO);
++		gpio_free(LB2002_EXPF_WIFI_POWER_GPIO);
++	} else {
++		dev_warn(mmc_dev(host),
++			 "lb2002-expf power gpio request failed gpio=%d ret=%d\n",
++			 LB2002_EXPF_WIFI_POWER_GPIO, ret);
++	}
++
++	ret = gpio_request(LB2002_EXPF_WIFI_RESET_GPIO, "lb2002-expf-reset");
++	if (!ret) {
++		ret = gpio_direction_output(LB2002_EXPF_WIFI_RESET_GPIO, 0);
++		dev_warn(mmc_dev(host),
++			 "lb2002-expf reset assert gpio=%d ret=%d\n",
++			 LB2002_EXPF_WIFI_RESET_GPIO, ret);
++		msleep(40);
++		ret = gpio_direction_output(LB2002_EXPF_WIFI_RESET_GPIO, 1);
++		dev_warn(mmc_dev(host),
++			 "lb2002-expf reset release gpio=%d ret=%d\n",
++			 LB2002_EXPF_WIFI_RESET_GPIO, ret);
++		msleep(120);
++		rst_val = gpio_get_value(LB2002_EXPF_WIFI_RESET_GPIO);
++		gpio_free(LB2002_EXPF_WIFI_RESET_GPIO);
++	} else {
++		dev_warn(mmc_dev(host),
++			 "lb2002-expf reset gpio request failed gpio=%d ret=%d\n",
++			 LB2002_EXPF_WIFI_RESET_GPIO, ret);
++	}
++
++	ret = gpio_request(LB2002_EXPF_WIFI_IRQ_GPIO, "lb2002-expf-irq");
++	if (!ret) {
++		ret = gpio_direction_input(LB2002_EXPF_WIFI_IRQ_GPIO);
++		irq_val = gpio_get_value(LB2002_EXPF_WIFI_IRQ_GPIO);
++		dev_warn(mmc_dev(host),
++			 "lb2002-expf irq sample gpio=%d ret=%d value=%d\n",
++			 LB2002_EXPF_WIFI_IRQ_GPIO, ret, irq_val);
++		gpio_free(LB2002_EXPF_WIFI_IRQ_GPIO);
++	} else {
++		dev_warn(mmc_dev(host),
++			 "lb2002-expf irq gpio request failed gpio=%d ret=%d\n",
++			 LB2002_EXPF_WIFI_IRQ_GPIO, ret);
++	}
++
++	dev_warn(mmc_dev(host),
++		 "lb2002-expf pre-cmd5 end power_val=%d reset_val=%d irq_val=%d\n",
++		 pwr_val, rst_val, irq_val);
++}
++
+ static int mmc_sdio_init_card(struct mmc_host *host, u32 ocr,
+ 			      struct mmc_card *oldcard)
+ {
+@@ -1217,7 +1294,11 @@ int mmc_attach_sdio(struct mmc_host *host)
+ 
+ 	WARN_ON(!host->claimed);
+ 
++	lb2002_expf_android_pre_cmd5_sequence(host);
+ 	err = mmc_send_io_op_cond(host, 0, &ocr);
++	dev_warn(mmc_dev(host),
++		 "lb2002-expf attach-sdio probe-cmd5 err=%d probe_ocr=%#x host_ocr_avail=%#x host_ocr_avail_sdio=%#x\n",
++		 err, ocr, host->ocr_avail, host->ocr_avail_sdio);
+ 	if (err)
+ 		return err;
+ 
