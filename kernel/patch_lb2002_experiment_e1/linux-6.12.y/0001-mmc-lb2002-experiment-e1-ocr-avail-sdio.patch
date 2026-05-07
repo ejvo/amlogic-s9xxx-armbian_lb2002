@@ -1,1 +1,164 @@
-
+diff --git a/drivers/mmc/core/host.c b/drivers/mmc/core/host.c
+index 5a01b9b..87d9419 100644
+--- a/drivers/mmc/core/host.c
++++ b/drivers/mmc/core/host.c
+@@ -275,6 +275,11 @@ int mmc_of_parse(struct mmc_host *host)
+ 	u32 bus_width, drv_type, cd_debounce_delay_ms;
+ 	int ret;
+ 
++	dev_warn(host->parent,
++		 "lb2002-expe1 mmc-of-parse entry ocr_avail=%#x ocr_avail_sdio=%#x caps=%#x caps2=%#x pm_caps=%#x f_max=%u\n",
++		 host->ocr_avail, host->ocr_avail_sdio, host->caps, host->caps2,
++		 host->pm_caps, host->f_max);
++
+ 	if (!dev || !dev_fwnode(dev))
+ 		return 0;
+ 
+@@ -427,6 +432,10 @@ int mmc_of_parse(struct mmc_host *host)
+ 	device_property_read_u32(dev, "post-power-on-delay-ms",
+ 				 &host->ios.power_delay_ms);
+ 
++	dev_warn(host->parent,
++		 "lb2002-expe1 mmc-of-parse exit ocr_avail=%#x ocr_avail_sdio=%#x caps=%#x caps2=%#x pm_caps=%#x f_max=%u\n",
++		 host->ocr_avail, host->ocr_avail_sdio, host->caps, host->caps2,
++		 host->pm_caps, host->f_max);
+ 	return mmc_pwrseq_alloc(host);
+ }
+ 
+diff --git a/drivers/mmc/core/regulator.c b/drivers/mmc/core/regulator.c
+index 8198960..fb9e351 100644
+--- a/drivers/mmc/core/regulator.c
++++ b/drivers/mmc/core/regulator.c
+@@ -250,6 +250,10 @@ int mmc_regulator_get_supply(struct mmc_host *mmc)
+ 	struct device *dev = mmc_dev(mmc);
+ 	int ret;
+ 
++	dev_warn(dev,
++		 "lb2002-expe1 regulator-get-supply entry ocr_avail=%#x ocr_avail_sdio=%#x\n",
++		 mmc->ocr_avail, mmc->ocr_avail_sdio);
++
+ 	mmc->supply.vmmc = devm_regulator_get_optional(dev, "vmmc");
+ 	mmc->supply.vqmmc = devm_regulator_get_optional(dev, "vqmmc");
+ 
+@@ -275,6 +279,11 @@ int mmc_regulator_get_supply(struct mmc_host *mmc)
+ 		dev_dbg(dev, "No vqmmc regulator found\n");
+ 	}
+ 
++	dev_warn(dev,
++		 "lb2002-expe1 regulator-get-supply exit ocr_avail=%#x ocr_avail_sdio=%#x vmmc_err=%d vqmmc_err=%d\n",
++		 mmc->ocr_avail, mmc->ocr_avail_sdio,
++		 IS_ERR(mmc->supply.vmmc) ? PTR_ERR(mmc->supply.vmmc) : 0,
++		 IS_ERR(mmc->supply.vqmmc) ? PTR_ERR(mmc->supply.vqmmc) : 0);
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(mmc_regulator_get_supply);
+diff --git a/drivers/mmc/core/sdio.c b/drivers/mmc/core/sdio.c
+index fd5c75a..c41df0b 100644
+--- a/drivers/mmc/core/sdio.c
++++ b/drivers/mmc/core/sdio.c
+@@ -1215,18 +1215,43 @@ int mmc_attach_sdio(struct mmc_host *host)
+ 	u32 ocr, rocr;
+ 	struct mmc_card *card;
+ 
++	dev_warn(mmc_dev(host),
++		 "lb2002-expe1 attach-sdio entry host_ocr_avail=%#x host_ocr_avail_sdio=%#x caps=%#x caps2=%#x f_init=%u\n",
++		 host->ocr_avail, host->ocr_avail_sdio, host->caps,
++		 host->caps2, host->f_init);
++
+ 	WARN_ON(!host->claimed);
+ 
+ 	err = mmc_send_io_op_cond(host, 0, &ocr);
++	dev_warn(mmc_dev(host),
++		 "lb2002-expe1 attach-sdio probe-cmd5 err=%d probe_ocr=%#x\n",
++		 err, ocr);
+ 	if (err)
+ 		return err;
+ 
+ 	mmc_attach_bus(host, &mmc_sdio_ops);
++	dev_warn(mmc_dev(host),
++		 "lb2002-expe1 attach-sdio pre-override host_ocr_avail=%#x host_ocr_avail_sdio=%#x\n",
++		 host->ocr_avail, host->ocr_avail_sdio);
++	if (!host->ocr_avail_sdio) {
++		host->ocr_avail_sdio = host->ocr_avail;
++		dev_warn(mmc_dev(host),
++			 "lb2002-expe1 attach-sdio mode=force-host-ocr-avail forced host_ocr_avail_sdio=%#x from host_ocr_avail=%#x\n",
++			 host->ocr_avail_sdio, host->ocr_avail);
++	}
+ 	if (host->ocr_avail_sdio)
+ 		host->ocr_avail = host->ocr_avail_sdio;
++	dev_warn(mmc_dev(host),
++		 "lb2002-expe1 attach-sdio post-override host_ocr_avail=%#x host_ocr_avail_sdio=%#x\n",
++		 host->ocr_avail, host->ocr_avail_sdio);
+ 
+-
++	dev_warn(mmc_dev(host),
++		 "lb2002-expe1 attach-sdio before-select raw_ocr=%#x host_ocr_avail=%#x host_ocr_avail_sdio=%#x current_ocr_avail=%#x\n",
++		 ocr, host->ocr_avail, host->ocr_avail_sdio, host->ocr_avail);
+ 	rocr = mmc_select_voltage(host, ocr);
++	dev_warn(mmc_dev(host),
++		 "lb2002-expe1 attach-sdio after-select rocr=%#x raw_ocr=%#x\n",
++		 rocr, ocr);
+ 
+ 	/*
+ 	 * Can we support the voltage(s) of the card(s)?
+diff --git a/drivers/mmc/core/sdio_ops.c b/drivers/mmc/core/sdio_ops.c
+index 96f7377..2e8a621 100644
+--- a/drivers/mmc/core/sdio_ops.c
++++ b/drivers/mmc/core/sdio_ops.c
+@@ -20,12 +20,20 @@ int mmc_send_io_op_cond(struct mmc_host *host, u32 ocr, u32 *rocr)
+ 	struct mmc_command cmd = {};
+ 	int i, err = 0;
+ 
++	dev_warn(mmc_dev(host),
++		 "lb2002-expe1 io-op-cond entry req_ocr=%#x host_ocr_avail=%#x host_ocr_avail_sdio=%#x caps=%#x caps2=%#x f_init=%u\n",
++		 ocr, host->ocr_avail, host->ocr_avail_sdio, host->caps,
++		 host->caps2, host->f_init);
++
+ 	cmd.opcode = SD_IO_SEND_OP_COND;
+ 	cmd.arg = ocr;
+ 	cmd.flags = MMC_RSP_SPI_R4 | MMC_RSP_R4 | MMC_CMD_BCR;
+ 
+ 	for (i = 100; i; i--) {
+ 		err = mmc_wait_for_cmd(host, &cmd, MMC_CMD_RETRIES);
++		dev_warn(mmc_dev(host),
++			 "lb2002-expe1 io-op-cond iter=%d err=%d resp0=%#x resp1=%#x req_ocr=%#x\n",
++			 i, err, cmd.resp[0], cmd.resp[1], ocr);
+ 		if (err)
+ 			break;
+ 
+@@ -56,6 +64,13 @@ int mmc_send_io_op_cond(struct mmc_host *host, u32 ocr, u32 *rocr)
+ 	if (rocr)
+ 		*rocr = cmd.resp[mmc_host_is_spi(host) ? 1 : 0];
+ 
++	dev_warn(mmc_dev(host),
++		 "lb2002-expe1 io-op-cond exit err=%d final_resp0=%#x final_resp1=%#x rocr=%#x busy_bit=%u spi=%u\n",
++		 err, cmd.resp[0], cmd.resp[1],
++		 rocr ? *rocr : 0,
++		 mmc_host_is_spi(host) ? !!(cmd.resp[1] & MMC_CARD_BUSY) :
++					  !!(cmd.resp[0] & MMC_CARD_BUSY),
++		 mmc_host_is_spi(host) ? 1 : 0);
+ 	return err;
+ }
+ 
+diff --git a/drivers/mmc/host/meson-gx-mmc.c b/drivers/mmc/host/meson-gx-mmc.c
+index fc1a5b3..3b42433 100644
+--- a/drivers/mmc/host/meson-gx-mmc.c
++++ b/drivers/mmc/host/meson-gx-mmc.c
+@@ -1158,10 +1158,17 @@ static int meson_mmc_probe(struct platform_device *pdev)
+ 
+ 	/* Get regulators and the supported OCR mask */
+ 	ret = mmc_regulator_get_supply(mmc);
++	dev_warn(&pdev->dev,
++		 "lb2002-expe1 meson-probe after-regulator ret=%d ocr_avail=%#x ocr_avail_sdio=%#x caps=%#x caps2=%#x\n",
++		 ret, mmc->ocr_avail, mmc->ocr_avail_sdio, mmc->caps, mmc->caps2);
+ 	if (ret)
+ 		return ret;
+ 
+ 	ret = mmc_of_parse(mmc);
++	dev_warn(&pdev->dev,
++		 "lb2002-expe1 meson-probe after-of-parse ret=%d ocr_avail=%#x ocr_avail_sdio=%#x caps=%#x caps2=%#x pm_caps=%#x f_max=%u\n",
++		 ret, mmc->ocr_avail, mmc->ocr_avail_sdio, mmc->caps, mmc->caps2,
++		 mmc->pm_caps, mmc->f_max);
+ 	if (ret)
+ 		return dev_err_probe(&pdev->dev, ret, "error parsing DT\n");
+ 
