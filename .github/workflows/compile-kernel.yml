@@ -180,7 +180,7 @@ jobs:
           kernel_sign: ${{ inputs.kernel_sign }}
           kernel_toolchain: ${{ inputs.kernel_toolchain }}
           kernel_config: kernel/config_lb2002
-          kernel_patch: kernel/patch_lb2002_experiment_a
+          kernel_patch: kernel/patch_lb2002_experiment_b
           auto_patch: true
           config_flavor: ""
           ccache_clear: ${{ inputs.ccache_clear }}
