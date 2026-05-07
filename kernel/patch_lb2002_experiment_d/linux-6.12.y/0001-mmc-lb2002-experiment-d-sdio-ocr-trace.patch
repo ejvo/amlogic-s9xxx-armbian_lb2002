@@ -1,1 +1,121 @@
-
+diff --git a/drivers/mmc/core/sdio.c b/drivers/mmc/core/sdio.c
+index fd5c75a..e7df679 100644
+--- a/drivers/mmc/core/sdio.c
++++ b/drivers/mmc/core/sdio.c
+@@ -661,6 +661,11 @@ static int mmc_sdio_init_card(struct mmc_host *host, u32 ocr,
+ 			      struct mmc_card *oldcard)
+ {
+ 	struct mmc_card *card;
++
++	dev_warn(mmc_dev(host),
++		 "lb2002-expd sdio-init-card entry ocr=%#x oldcard=%u host_ocr_avail=%#x host_ocr_avail_sdio=%#x caps=%#x caps2=%#x\n",
++		 ocr, oldcard ? 1 : 0, host->ocr_avail, host->ocr_avail_sdio,
++		 host->caps, host->caps2);
+ 	int err;
+ 	int retries = 10;
+ 	u32 rocr = 0;
+@@ -671,6 +676,9 @@ static int mmc_sdio_init_card(struct mmc_host *host, u32 ocr,
+ 	/* to query card if 1.8V signalling is supported */
+ 	if (mmc_host_uhs(host))
+ 		ocr |= R4_18V_PRESENT;
++	dev_warn(mmc_dev(host),
++		 "lb2002-expd sdio-init-card after-uhs ocr=%#x uhs=%u\n",
++		 ocr, mmc_host_uhs(host) ? 1 : 0);
+ 
+ try_again:
+ 	if (!retries) {
+@@ -682,6 +690,9 @@ try_again:
+ 	 * Inform the card of the voltage
+ 	 */
+ 	err = mmc_send_io_op_cond(host, ocr, &rocr);
++	dev_warn(mmc_dev(host),
++		 "lb2002-expd sdio-init-card io-op-cond err=%d req_ocr=%#x rocr=%#x\n",
++		 err, ocr, rocr);
+ 	if (err)
+ 		return err;
+ 
+@@ -740,7 +751,13 @@ try_again:
+ 	 * to make sure which speed mode should work.
+ 	 */
+ 	if (rocr & ocr & R4_18V_PRESENT) {
++		dev_warn(mmc_dev(host),
++			 "lb2002-expd sdio-init-card uhs-path rocr=%#x ocr=%#x ocr_card=%#x\n",
++			 rocr, ocr, ocr_card);
+ 		err = mmc_set_uhs_voltage(host, ocr_card);
++		dev_warn(mmc_dev(host),
++			 "lb2002-expd sdio-init-card uhs-voltage err=%d rocr=%#x ocr=%#x\n",
++			 err, rocr, ocr);
+ 		if (err == -EAGAIN) {
+ 			mmc_sdio_pre_init(host, ocr_card, card);
+ 			retries--;
+@@ -1215,9 +1232,17 @@ int mmc_attach_sdio(struct mmc_host *host)
+ 	u32 ocr, rocr;
+ 	struct mmc_card *card;
+ 
++	dev_warn(mmc_dev(host),
++		 "lb2002-expd attach-sdio entry host_ocr_avail=%#x host_ocr_avail_sdio=%#x caps=%#x caps2=%#x f_init=%u\n",
++		 host->ocr_avail, host->ocr_avail_sdio, host->caps,
++		 host->caps2, host->f_init);
++
+ 	WARN_ON(!host->claimed);
+ 
+ 	err = mmc_send_io_op_cond(host, 0, &ocr);
++	dev_warn(mmc_dev(host),
++		 "lb2002-expd attach-sdio probe-cmd5 err=%d probe_ocr=%#x\n",
++		 err, ocr);
+ 	if (err)
+ 		return err;
+ 
+@@ -1226,7 +1251,13 @@ int mmc_attach_sdio(struct mmc_host *host)
+ 		host->ocr_avail = host->ocr_avail_sdio;
+ 
+ 
++	dev_warn(mmc_dev(host),
++		 "lb2002-expd attach-sdio before-select raw_ocr=%#x host_ocr_avail=%#x host_ocr_avail_sdio=%#x current_ocr_avail=%#x\n",
++		 ocr, host->ocr_avail, host->ocr_avail_sdio, host->ocr_avail);
+ 	rocr = mmc_select_voltage(host, ocr);
++	dev_warn(mmc_dev(host),
++		 "lb2002-expd attach-sdio after-select rocr=%#x raw_ocr=%#x\n",
++		 rocr, ocr);
+ 
+ 	/*
+ 	 * Can we support the voltage(s) of the card(s)?
+diff --git a/drivers/mmc/core/sdio_ops.c b/drivers/mmc/core/sdio_ops.c
+index 96f7377..a2e0df4 100644
+--- a/drivers/mmc/core/sdio_ops.c
++++ b/drivers/mmc/core/sdio_ops.c
+@@ -20,12 +20,20 @@ int mmc_send_io_op_cond(struct mmc_host *host, u32 ocr, u32 *rocr)
+ 	struct mmc_command cmd = {};
+ 	int i, err = 0;
+ 
++	dev_warn(mmc_dev(host),
++		 "lb2002-expd io-op-cond entry req_ocr=%#x host_ocr_avail=%#x host_ocr_avail_sdio=%#x caps=%#x caps2=%#x f_init=%u\n",
++		 ocr, host->ocr_avail, host->ocr_avail_sdio, host->caps,
++		 host->caps2, host->f_init);
++
+ 	cmd.opcode = SD_IO_SEND_OP_COND;
+ 	cmd.arg = ocr;
+ 	cmd.flags = MMC_RSP_SPI_R4 | MMC_RSP_R4 | MMC_CMD_BCR;
+ 
+ 	for (i = 100; i; i--) {
+ 		err = mmc_wait_for_cmd(host, &cmd, MMC_CMD_RETRIES);
++		dev_warn(mmc_dev(host),
++			 "lb2002-expd io-op-cond iter=%d err=%d resp0=%#x resp1=%#x req_ocr=%#x\n",
++			 i, err, cmd.resp[0], cmd.resp[1], ocr);
+ 		if (err)
+ 			break;
+ 
+@@ -56,6 +64,13 @@ int mmc_send_io_op_cond(struct mmc_host *host, u32 ocr, u32 *rocr)
+ 	if (rocr)
+ 		*rocr = cmd.resp[mmc_host_is_spi(host) ? 1 : 0];
+ 
++	dev_warn(mmc_dev(host),
++		 "lb2002-expd io-op-cond exit err=%d final_resp0=%#x final_resp1=%#x rocr=%#x busy_bit=%u spi=%u\n",
++		 err, cmd.resp[0], cmd.resp[1],
++		 rocr ? *rocr : 0,
++		 mmc_host_is_spi(host) ? !!(cmd.resp[1] & MMC_CARD_BUSY) :
++					  !!(cmd.resp[0] & MMC_CARD_BUSY),
++		 mmc_host_is_spi(host) ? 1 : 0);
+ 	return err;
+ }
+ 
