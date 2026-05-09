@@ -14,7 +14,7 @@ on:
       base_image_url:
         description: "Direct URL to base Armbian .img.gz"
         required: false
-        default: "https://github.com/ophub/amlogic-s9xxx-armbian/releases/download/Armbian_26.05.0/Armbian_26.05.0_amlogic_s905l3a_bookworm_6.12.85_server_2026.05.01.img.gz"
+        default: "https://github.com/ophub/amlogic-s9xxx-armbian/releases/download/Armbian_bookworm_arm64_server_2026.05/Armbian_26.05.0_amlogic_s905l3a_bookworm_6.12.85_server_2026.05.01.img.gz"
       armbian_board:
         description: "Select device board."
         required: false
@@ -107,17 +107,22 @@ jobs:
               ;;
           esac
 
-          echo "Checking kernel URL: ${kernel_url}"
-          if ! curl -fLI -o /dev/null "${kernel_url}"; then
-          echo "error: kernel URL check failed: ${kernel_url}"
-          exit 1
-           fi
+          check_url() {
+            local label="$1"
+            local url="$2"
+            test -n "${url}"
+            echo "Checking ${label}: ${url}"
+            if curl -fLIsS --retry 3 --retry-delay 2 -o /dev/null "${url}"; then
+              return 0
+            fi
+            echo "curl check failed for ${label}, retrying with wget --spider"
+            wget --spider --tries=3 --retry-connrefused --waitretry=2 "${url}"
+          }
 
-          echo "Checking base image URL: ${{ inputs.base_image_url }}"
-          if ! curl -fLI -o /dev/null "${{ inputs.base_image_url }}"; then
-          echo "error: base image URL check failed: ${{ inputs.base_image_url }}"
-          exit 1
-          fi  
+          kernel_url="https://github.com/${{ inputs.kernel_repo }}/releases/download/kernel_${{ inputs.kernel_usage }}/${{ inputs.armbian_kernel }}.tar.gz"
+          check_url "kernel URL" "${kernel_url}"
+
+          check_url "base image URL" "${{ inputs.base_image_url }}"
 
           echo "status=success" >> ${GITHUB_OUTPUT}
 
@@ -161,9 +166,30 @@ jobs:
           set -e
           mkdir -p /builder/base
           cd /builder/base
-          wget -O base.img.gz "${{ inputs.base_image_url }}"
-          gzip -df base.img.gz
-          mv base.img Armbian-unofficial_26.05.0-trunk_amlogic_s905l3a_bookworm_6.12.85.img
+          base_url="${{ inputs.base_image_url }}"
+          base_gz="$(basename "${base_url%%\?*}")"
+          case "${base_gz}" in
+            *.img.gz) ;;
+            *)
+              echo "error: base_image_url must point to a .img.gz file: ${base_url}"
+              exit 1
+              ;;
+          esac
+
+          wget --tries=3 --retry-connrefused --waitretry=2 -O "${base_gz}" "${base_url}"
+          gzip -df "${base_gz}"
+          base_img="${base_gz%.gz}"
+          test -f "${base_img}"
+
+          # ophub ./rebuild only discovers source images matching *-trunk_*.img.
+          # Preserve release and kernel version from the original filename while
+          # rewriting it into the pattern expected by the upstream script.
+          compat_img="$(printf '%s\n' "${base_img}" | sed -E 's#^Armbian_([0-9][^_]*)_(.+)_([0-9]+\.[0-9]+\.[0-9]+)_[^./]+\.img$#Armbian-unofficial_\1-trunk_\2_\3.img#')"
+          if [ "${compat_img}" = "${base_img}" ]; then
+            echo "error: unsupported base image filename layout: ${base_img}"
+            exit 1
+          fi
+          mv -f "${base_img}" "${compat_img}"
           ls -lh
           echo "status=success" >> ${GITHUB_OUTPUT}
 
