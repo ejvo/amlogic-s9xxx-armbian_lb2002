@@ -13,6 +13,9 @@
     interrupt-parent = <0x00000001>;
     #address-cells = <0x00000002>;
     #size-cells = <0x00000002>;
+    model = "LB2002 White S905L3A PINPROBE BUILD (SDIO host disabled)";
+    compatible = "lb2002-white-test-v4", "lb2002-white-test-v3", "lb2002-white-test-v2", "lb2002-white-test", "m401a", "amlogic,g12a";
+    amlogic-dt-id = "lb2002_m401a_test_v4_2g";
     aliases {
         ethernet0 = "/soc/ethernet@ff3f0000";
         serial1 = "/soc/bus@ffd00000/serial@24000";
@@ -3218,9 +3221,6 @@
         vddcpu = "/regulator-vddcpu";
         vddgpu = "/regulator-vddgpu";
     };
-    model = "LB2002 White S905L3A PINPROBE BUILD (SDIO host disabled)";
-    compatible = "lb2002-white-test-v4", "lb2002-white-test-v3", "lb2002-white-test-v2", "lb2002-white-test", "m401a", "amlogic,g12a";
-    amlogic-dt-id = "lb2002_m401a_test_v4_2g";
     bt-dev {
         compatible = "amlogic,bt-dev";
         dev_name = "bt-dev";
