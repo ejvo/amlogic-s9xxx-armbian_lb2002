@@ -216,6 +216,7 @@ jobs:
           done < <(find "${custom_files}" -mindepth 1 -maxdepth 1 ! -name boot)
 
           chmod +x "${target_common}/usr/local/sbin/"lb2002-pinprobe-*.sh 2>/dev/null || true
+          chmod +x "${target_common}/usr/local/sbin/"lb2002-sdio-*.sh 2>/dev/null || true
 
           cd rebuild
           sudo ./rebuild \

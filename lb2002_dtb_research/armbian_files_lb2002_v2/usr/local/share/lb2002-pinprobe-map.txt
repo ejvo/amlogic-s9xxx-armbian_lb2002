@@ -6,15 +6,15 @@ Purpose:
 - probe module pads with an oscilloscope
 
 Candidate lines:
-- 64  GPIOX_0   inferred SDIO_D0
-- 65  GPIOX_1   inferred SDIO_D1
-- 66  GPIOX_2   inferred SDIO_D2
-- 67  GPIOX_3   inferred SDIO_D3
-- 68  GPIOX_4   inferred SDIO_CLK
-- 69  GPIOX_5   inferred SDIO_CMD
-- 72  GPIOX_8   Android power_on_pin 0x48
-- 73  GPIOX_9   Android interrupt_pin 0x49
-- 83  GPIOX_19  Android gpio_reset 0x53
+- 64  GPIOX_0   corrected SDIO_D0
+- 65  GPIOX_1   corrected SDIO_D1
+- 66  GPIOX_2   corrected SDIO_D2
+- 67  GPIOX_3   corrected SDIO_D3
+- 68  GPIOX_4   corrected SDIO_CLK
+- 69  GPIOX_5   corrected SDIO_CMD
+- 70  GPIOX_6   corrected CHIP_EN
+- 81  GPIOX_17  corrected RST_N
+- 82  GPIOX_18  corrected INT
 
 How to use:
 - single pin:
@@ -24,5 +24,6 @@ How to use:
   /usr/local/sbin/lb2002-pinprobe-sweep.sh 8 250
 
 Interpretation:
+- current candidate map assumes the earlier oscilloscope sweep was shifted by +1 line
 - if oscilloscope confirms the expected meander on a module contact, the physical line mapping is confirmed
 - if no meander appears on expected SDIO contacts, the physical layer / pin mapping hypothesis remains open
