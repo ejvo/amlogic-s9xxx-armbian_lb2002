@@ -14,7 +14,7 @@ on:
       base_image_url:
         description: "Direct URL to base Armbian .img.gz"
         required: false
-        default: "https://github.com/ophub/amlogic-s9xxx-armbian/releases/download/Armbian_bookworm_arm64_server_2026.05/Armbian_26.05.0_amlogic_s905l3a_bookworm_6.12.85_server_2026.05.01.img.gz"
+        default: "https://github.com/ophub/amlogic-s9xxx-armbian/releases/download/Armbian_26.05.0/Armbian_26.05.0_amlogic_s905l3a_bookworm_6.12.85_server_2026.05.01.img.gz"
       armbian_board:
         description: "Select device board."
         required: false
@@ -90,7 +90,12 @@ jobs:
           custom_root="${{ github.workspace }}/${{ inputs.armbian_files }}"
           test -d "${custom_root}"
           test -f "${custom_root}/boot/uEnv.txt"
-          test -f "${custom_root}/boot/dtb/amlogic/meson-g12a-s905l3a-lb2002-test-v2.dtb"
+          fdt_rel="$(sed -n 's/^FDT=//p' "${custom_root}/boot/uEnv.txt" | head -n1 | sed 's#^/##')"
+          test -n "${fdt_rel}"
+          fdt_path="${custom_root}/boot/${fdt_rel}"
+          if [ ! -f "${fdt_path}" ]; then
+            test -f "${fdt_path%.dtb}.dts"
+          fi
 
           case "${{ inputs.armbian_board }}" in
             s905l3a) ;;
@@ -117,7 +122,7 @@ jobs:
         run: |
           set -e
           sudo -E apt-get -y update
-          sudo -E apt-get -y install curl wget xz-utils pigz p7zip-full
+          sudo -E apt-get -y install curl wget xz-utils pigz p7zip-full device-tree-compiler
           echo "status=success" >> ${GITHUB_OUTPUT}
 
       - name: Create virtual disk for extended storage
@@ -177,10 +182,21 @@ jobs:
             cp -avf --no-preserve=ownership "${custom_files}/boot/." "${target_bootfs}/"
           fi
 
+          # Compile any local DTS overlays into DTB directly on the runner.
+          if [ -d "${target_bootfs}/dtb/amlogic" ]; then
+            while IFS= read -r dts; do
+              dtb="${dts%.dts}.dtb"
+              echo "Compiling local DTS: ${dts} -> ${dtb}"
+              dtc -I dts -O dtb -o "${dtb}" "${dts}"
+            done < <(find "${target_bootfs}/dtb/amlogic" -maxdepth 1 -type f -name '*.dts' | sort)
+          fi
+
           # Any non-boot overlay content remains common rootfs content.
           while IFS= read -r item; do
             cp -avf --no-preserve=ownership "${item}" "${target_common}/"
           done < <(find "${custom_files}" -mindepth 1 -maxdepth 1 ! -name boot)
+
+          chmod +x "${target_common}/usr/local/sbin/"lb2002-pinprobe-*.sh 2>/dev/null || true
 
           cd rebuild
           sudo ./rebuild \
