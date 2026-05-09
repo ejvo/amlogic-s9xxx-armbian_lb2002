@@ -14,7 +14,7 @@ on:
       base_image_url:
         description: "Direct URL to base Armbian .img.gz"
         required: false
-        default: "https://github.com/ophub/amlogic-s9xxx-armbian/releases/download/Armbian_bookworm_arm64_server_2026.05/Armbian_26.05.0_amlogic_s905l2_bookworm_6.12.85_server_2026.05.01.img.gz"
+        default: "https://github.com/ophub/amlogic-s9xxx-armbian/releases/download/Armbian_26.05.0/Armbian_26.05.0_amlogic_s905l3a_bookworm_6.12.85_server_2026.05.01.img.gz"
       armbian_board:
         description: "Select device board."
         required: false
@@ -107,12 +107,17 @@ jobs:
               ;;
           esac
 
-          kernel_url="https://github.com/${{ inputs.kernel_repo }}/releases/download/kernel_${{ inputs.kernel_usage }}/${{ inputs.armbian_kernel }}.tar.gz"
           echo "Checking kernel URL: ${kernel_url}"
-          curl -fsI -o /dev/null "${kernel_url}"
+          if ! curl -fLI -o /dev/null "${kernel_url}"; then
+          echo "error: kernel URL check failed: ${kernel_url}"
+          exit 1
+           fi
 
           echo "Checking base image URL: ${{ inputs.base_image_url }}"
-          curl -fsI -o /dev/null "${{ inputs.base_image_url }}"
+          if ! curl -fLI -o /dev/null "${{ inputs.base_image_url }}"; then
+          echo "error: base image URL check failed: ${{ inputs.base_image_url }}"
+          exit 1
+          fi  
 
           echo "status=success" >> ${GITHUB_OUTPUT}
 
