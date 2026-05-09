@@ -1,1 +1,28 @@
+LB2002 pinprobe candidate map
 
+Purpose:
+- boot with SDIO host disabled
+- drive candidate SDIO and auxiliary lines as GPIO from userspace
+- probe module pads with an oscilloscope
+
+Candidate lines:
+- 64  GPIOX_0   inferred SDIO_D0
+- 65  GPIOX_1   inferred SDIO_D1
+- 66  GPIOX_2   inferred SDIO_D2
+- 67  GPIOX_3   inferred SDIO_D3
+- 68  GPIOX_4   inferred SDIO_CLK
+- 69  GPIOX_5   inferred SDIO_CMD
+- 72  GPIOX_8   Android power_on_pin 0x48
+- 73  GPIOX_9   Android interrupt_pin 0x49
+- 83  GPIOX_19  Android gpio_reset 0x53
+
+How to use:
+- single pin:
+  /usr/local/sbin/lb2002-pinprobe-wave.sh 68 250
+
+- sweep all candidates:
+  /usr/local/sbin/lb2002-pinprobe-sweep.sh 8 250
+
+Interpretation:
+- if oscilloscope confirms the expected meander on a module contact, the physical line mapping is confirmed
+- if no meander appears on expected SDIO contacts, the physical layer / pin mapping hypothesis remains open
