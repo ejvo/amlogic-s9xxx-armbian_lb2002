@@ -165,12 +165,15 @@ jobs:
           test -f "${base_img}"
 
           # ophub ./rebuild only discovers source images matching *-trunk_*.img.
-          # Preserve release and kernel version from the original filename while
-          # rewriting it into the pattern expected by the upstream script.
-          compat_img="$(printf '%s\n' "${base_img}" | sed -E 's#^Armbian_([0-9][^_]*)_(.+)_([0-9]+\.[0-9]+\.[0-9]+)_[^./]+\.img$#Armbian-unofficial_\1-trunk_\2_\3.img#')"
+          # Preserve release and kernel version when we can, but always provide
+          # a compatible fallback for newer upstream filename layouts.
+          compat_img="$(printf '%s\n' "${base_img}" | sed -E 's#^Armbian_([^_]+)_(.*)_([0-9]+\.[0-9]+\.[0-9]+)(_[^./]+)*\.img$#Armbian-unofficial_\1-trunk_\2_\3.img#')"
           if [ "${compat_img}" = "${base_img}" ]; then
-            echo "error: unsupported base image filename layout: ${base_img}"
-            exit 1
+            release_ver="$(printf '%s\n' "${base_img}" | sed -nE 's#^Armbian_([^_]+)_.+#\1#p')"
+            kernel_ver="$(printf '%s\n' "${base_img}" | sed -nE 's#^.*_([0-9]+\.[0-9]+\.[0-9]+)(_[^./]+)*\.img$#\1#p')"
+            test -n "${release_ver}"
+            test -n "${kernel_ver}"
+            compat_img="Armbian-unofficial_${release_ver}-trunk_amlogic_${{ inputs.armbian_board }}_bookworm_${kernel_ver}.img"
           fi
           mv -f "${base_img}" "${compat_img}"
           ls -lh
