@@ -238,8 +238,30 @@ jobs:
           grep -E '^CONFIG_CAN_MCP251X=m$' /tmp/kernel-config-check
           grep -E '^CONFIG_CAN_MCP251XFD=m$' /tmp/kernel-config-check
 
-      - name: Create exact-version kernel release aliases
+      - name: Verify lb2002 experiment marker in packaged kernel
         if: ${{ always() }}
+        run: |
+          set -e
+          outdir="/builder/compile-kernel/output"
+          main_tar="$(find "${outdir}" -maxdepth 1 -type f -name '*.tar.gz' ! -name 'deb-*' | head -n 1)"
+          test -n "${main_tar}"
+          boot_member="$(tar -tf "${main_tar}" | grep -E '(^|/|\.\/)boot-[0-9]+\.[0-9]+\.[0-9]+.*\.tar\.gz$' | head -n 1)"
+          test -n "${boot_member}"
+          tar -xOf "${main_tar}" "${boot_member}" > /tmp/boot-nested.tar.gz
+
+          kernel_name="$(tar -tf /tmp/boot-nested.tar.gz | grep -E '(^|/|\.\/)vmlinuz-.*lb2002can$' | head -n 1)"
+          if [ -z "${kernel_name}" ]; then
+            echo "Could not locate vmlinuz-*lb2002can inside nested ${boot_member}"
+            tar -tf /tmp/boot-nested.tar.gz | sed -n '1,120p'
+            exit 1
+          fi
+          tar -xOf /tmp/boot-nested.tar.gz "${kernel_name}" > /tmp/kernel-vmlinuz-check
+          test -s /tmp/kernel-vmlinuz-check
+          grep -a 'lb2002-expf' /tmp/kernel-vmlinuz-check
+          rm -f /tmp/kernel-vmlinuz-check /tmp/boot-nested.tar.gz
+
+      - name: Create exact-version kernel release aliases
+        if: ${{ steps.compile_kernel.outcome == 'success' && !cancelled() }}
         run: |
           set -e
           outdir="/builder/compile-kernel/output"
@@ -280,12 +302,42 @@ jobs:
             sudo tar -czf "${outdir}/deb-${exact_version}.tar.gz" "deb-${exact_version}"
           )
 
+          sign_tag="$(printf '%s' "${{ inputs.kernel_sign }}" | sed -E 's#^-##; s#[^A-Za-z0-9._-]#-#g')"
+          immutable_suffix="${sign_tag}-g${GITHUB_SHA::8}-r${GITHUB_RUN_ID}"
+          requested_main_asset="${{ inputs.kernel_version }}-${immutable_suffix}.tar.gz"
+          requested_deb_asset="deb-${{ inputs.kernel_version }}-${immutable_suffix}.tar.gz"
+          exact_main_asset="${exact_version}-${immutable_suffix}.tar.gz"
+          exact_deb_asset="deb-${exact_version}-${immutable_suffix}.tar.gz"
+
+          cp -af "${main_tar}" "${outdir}/${requested_main_asset}"
+          cp -af "${deb_tar}" "${outdir}/${requested_deb_asset}"
+          cp -af "${outdir}/${exact_version}.tar.gz" "${outdir}/${exact_main_asset}"
+          cp -af "${outdir}/deb-${exact_version}.tar.gz" "${outdir}/${exact_deb_asset}"
+
+          cat > "${outdir}/kernel-release-manifest.json" <<EOF
+          {
+            "requested_kernel": "${{ inputs.kernel_version }}",
+            "exact_kernel_version": "${exact_version}",
+            "kernel_sign": "${sign_tag}",
+            "git_sha": "${GITHUB_SHA}",
+            "run_id": "${GITHUB_RUN_ID}",
+            "assets": {
+              "requested": "${requested_main_asset}",
+              "requested_deb": "${requested_deb_asset}",
+              "exact": "${exact_main_asset}",
+              "exact_deb": "${exact_deb_asset}"
+            }
+          }
+          EOF
+
           echo "EXACT_KERNEL_VERSION=${exact_version}" >> ${GITHUB_ENV}
+          echo "IMMUTABLE_REQUESTED_KERNEL_ASSET=${requested_main_asset}" >> ${GITHUB_ENV}
+          echo "IMMUTABLE_EXACT_KERNEL_ASSET=${exact_main_asset}" >> ${GITHUB_ENV}
           sudo ls -lh "${outdir}"
 
       - name: Upload Kernel to Release
         uses: ncipollo/release-action@main
-        if: ${{ always() }}
+        if: ${{ steps.compile_kernel.outcome == 'success' && !cancelled() }}
         with:
           tag: kernel_stable
           artifacts: /builder/compile-kernel/output/*

@@ -40,6 +40,14 @@ on:
         options:
           - ophub/kernel
           - ejvo/amlogic-s9xxx-armbian_lb2002
+      kernel_sign:
+        description: "Expected immutable kernel asset signature."
+        required: false
+        default: "lb2002can"
+        type: choice
+        options:
+          - lb2002can
+          - ophub
       kernel_usage:
         description: "Set the tags of the stable kernel."
         required: false
@@ -117,7 +125,7 @@ jobs:
         run: |
           set -e
           sudo -E apt-get -y update
-          sudo -E apt-get -y install curl wget xz-utils pigz p7zip-full device-tree-compiler
+          sudo -E apt-get -y install curl wget xz-utils pigz p7zip-full device-tree-compiler jq binutils
           echo "status=success" >> ${GITHUB_OUTPUT}
 
       - name: Create virtual disk for extended storage
@@ -226,12 +234,43 @@ jobs:
           grep -nE "^[^#].*:${{ inputs.armbian_board }}:.*$" "${model_conf}" || true
 
           # Preseed the exact kernel bundle locally so ophub ./rebuild does not
-          # fetch a stale mutable release asset behind our back.
+          # fetch a stale mutable release asset behind our back. Prefer the
+          # immutable asset names published by compile-kernel.yml and only
+          # fall back to the legacy mutable alias when nothing else exists.
           rm -rf "${kernel_cache_dir}"
           mkdir -p "rebuild/build-armbian/kernel/${{ inputs.kernel_usage }}"
-          kernel_bundle_url="https://github.com/${{ inputs.kernel_repo }}/releases/download/kernel_${{ inputs.kernel_usage }}/${{ inputs.armbian_kernel }}.tar.gz?ts=$(date +%s)"
-          echo "Prefetching kernel bundle: ${kernel_bundle_url}"
-          curl -fL --retry 5 --retry-delay 5 -o "${kernel_cache_dir}.tar.gz" "${kernel_bundle_url}"
+          release_api="https://api.github.com/repos/${{ inputs.kernel_repo }}/releases/tags/kernel_${{ inputs.kernel_usage }}"
+          kernel_pattern="${{ inputs.armbian_kernel }}"
+          kernel_pattern="${kernel_pattern//./\\.}"
+          immutable_regex="^${kernel_pattern}-${{ inputs.kernel_sign }}-g[0-9a-f]{8}-r[0-9]+\\.tar\\.gz$"
+          asset_meta="$(
+            curl -fsSL --retry 5 --retry-delay 5 \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              "${release_api}" |
+              jq -r --arg re "${immutable_regex}" '
+                .assets
+                | map(select(.name | test($re)))
+                | sort_by(.updated_at)
+                | last
+                | if . then (.name + "\t" + .url) else empty end
+              '
+          )"
+
+          if [ -n "${asset_meta}" ]; then
+            kernel_asset_name="$(printf '%s' "${asset_meta}" | cut -f1)"
+            kernel_asset_url="$(printf '%s' "${asset_meta}" | cut -f2)"
+            echo "Prefetching immutable kernel bundle: ${kernel_asset_name}"
+            curl -fL --retry 5 --retry-delay 5 \
+              -H "Accept: application/octet-stream" \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              -o "${kernel_cache_dir}.tar.gz" \
+              "${kernel_asset_url}"
+          else
+            kernel_bundle_url="https://github.com/${{ inputs.kernel_repo }}/releases/download/kernel_${{ inputs.kernel_usage }}/${{ inputs.armbian_kernel }}.tar.gz?ts=$(date +%s)"
+            echo "warning: immutable kernel bundle not found for ${immutable_regex}; falling back to legacy alias ${kernel_bundle_url}"
+            curl -fL --retry 5 --retry-delay 5 -o "${kernel_cache_dir}.tar.gz" "${kernel_bundle_url}"
+          fi
           tar -xzf "${kernel_cache_dir}.tar.gz" -C "rebuild/build-armbian/kernel/${{ inputs.kernel_usage }}"
           test -d "${kernel_cache_dir}"
           test -f "${kernel_cache_dir}/sha256sums"
@@ -245,7 +284,7 @@ jobs:
           tar -xOf "${kernel_boot}" "${kernel_member}" > "${tmp_kernel}"
           test -s "${tmp_kernel}"
           if ! strings "${tmp_kernel}" | grep -q 'lb2002-expf'; then
-            echo "error: prefetched kernel bundle is stale and lacks lb2002-expf markers: ${kernel_bundle_url}"
+            echo "error: prefetched kernel bundle lacks lb2002-expf markers for requested kernel=${{ inputs.armbian_kernel }} sign=${{ inputs.kernel_sign }}"
             exit 1
           fi
 
