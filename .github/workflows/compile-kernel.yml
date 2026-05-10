@@ -310,12 +310,12 @@ jobs:
           exact_main_asset="${exact_version}-${immutable_suffix}.tar.gz"
           exact_deb_asset="deb-${exact_version}-${immutable_suffix}.tar.gz"
 
-          cp -af "${main_tar}" "${outdir}/${requested_main_asset}"
-          cp -af "${deb_tar}" "${outdir}/${requested_deb_asset}"
-          cp -af "${outdir}/${exact_version}.tar.gz" "${outdir}/${exact_main_asset}"
-          cp -af "${outdir}/deb-${exact_version}.tar.gz" "${outdir}/${exact_deb_asset}"
+          sudo cp -af "${main_tar}" "${outdir}/${requested_main_asset}"
+          sudo cp -af "${deb_tar}" "${outdir}/${requested_deb_asset}"
+          sudo cp -af "${outdir}/${exact_version}.tar.gz" "${outdir}/${exact_main_asset}"
+          sudo cp -af "${outdir}/deb-${exact_version}.tar.gz" "${outdir}/${exact_deb_asset}"
 
-          cat > "${outdir}/kernel-release-manifest.json" <<EOF
+          cat > "${workdir}/kernel-release-manifest.json" <<EOF
           {
             "requested_kernel": "${{ inputs.kernel_version }}",
             "exact_kernel_version": "${exact_version}",
@@ -330,6 +330,7 @@ jobs:
             }
           }
           EOF
+          sudo install -m 0644 "${workdir}/kernel-release-manifest.json" "${outdir}/kernel-release-manifest.json"
 
           echo "EXACT_KERNEL_VERSION=${exact_version}" >> ${GITHUB_ENV}
           echo "IMMUTABLE_REQUESTED_KERNEL_ASSET=${requested_main_asset}" >> ${GITHUB_ENV}
