@@ -6,15 +6,24 @@ Purpose:
 - probe module pads with an oscilloscope
 
 Candidate lines:
-- 64  GPIOX_0   corrected SDIO_D0
-- 65  GPIOX_1   corrected SDIO_D1
-- 66  GPIOX_2   corrected SDIO_D2
-- 67  GPIOX_3   corrected SDIO_D3
-- 68  GPIOX_4   corrected SDIO_CLK
-- 69  GPIOX_5   corrected SDIO_CMD
-- 70  GPIOX_6   corrected CHIP_EN
-- 81  GPIOX_17  corrected RST_N
-- 82  GPIOX_18  corrected INT
+- 65  GPIOX_1   SDIO_D0
+- 66  GPIOX_2   SDIO_D1
+- 67  GPIOX_3   SDIO_D2
+- 68  GPIOX_4   SDIO_D3
+- 69  GPIOX_5   SDIO_CLK
+- 70  GPIOX_6   SDIO_CMD
+- 71  GPIOX_7   CHIP_EN
+- 72  GPIOX_8   ESMD3
+- 73  GPIOX_9   IISDO
+- 74  GPIOX_10  IISDI
+- 75  GPIOX_11  IISLRCK
+- 76  GPIOX_12  IISCLK
+- 77  GPIOX_13  U0RXD
+- 78  GPIOX_14  U0TXD
+- 79  GPIOX_15  U0RTS
+- 80  GPIOX_16  U0CTS
+- 82  GPIOX_18  RST_N
+- 83  GPIOX_19  INT
 
 How to use:
 - single pin:
@@ -24,6 +33,6 @@ How to use:
   /usr/local/sbin/lb2002-pinprobe-sweep.sh 8 250
 
 Interpretation:
-- current candidate map assumes the earlier oscilloscope sweep was shifted by +1 line
+- this map reflects the latest oscilloscope-confirmed physical routing
 - if oscilloscope confirms the expected meander on a module contact, the physical line mapping is confirmed
 - if no meander appears on expected SDIO contacts, the physical layer / pin mapping hypothesis remains open

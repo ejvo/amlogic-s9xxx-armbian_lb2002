@@ -9,9 +9,9 @@ index fd5c75a..fd6d080 100644
 +#include <linux/gpio.h>
 +#include <linux/delay.h>
 +
-+#define LB2002_EXPF_WIFI_POWER_GPIO 582
-+#define LB2002_EXPF_WIFI_IRQ_GPIO   594
-+#define LB2002_EXPF_WIFI_RESET_GPIO 593
++#define LB2002_EXPF_WIFI_POWER_GPIO 583
++#define LB2002_EXPF_WIFI_IRQ_GPIO   595
++#define LB2002_EXPF_WIFI_RESET_GPIO 594
  
  #include "core.h"
  #include "card.h"

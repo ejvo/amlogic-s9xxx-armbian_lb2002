@@ -13,22 +13,22 @@ module_pin,signal,description,soc_gpio_line,soc_gpio_name,status,notes
 12,RF_BT(NC),BT ANT(NC),,,,
 13,ESMCLK,ESMCLK,,,,
 14,ESMCSN,ESMCSN,,,,
-15,CHIP_EN,PMU-Enable,70,GPIOX_6,corrected-shift-minus-1,derived from oscilloscope mapping with global -1 line correction
-16,ESMD3,ESMD3,71,GPIOX_7,corrected-shift-minus-1,derived from oscilloscope mapping with global -1 line correction
-17,SD_CMD,SDIO Command Input,69,GPIOX_5,corrected-shift-minus-1,derived from oscilloscope mapping with global -1 line correction
-18,SD_CLK,SDIO Clock Input,68,GPIOX_4,corrected-shift-minus-1,derived from oscilloscope mapping with global -1 line correction
-19,SD_D3,SDIO Data Line 3,67,GPIOX_3,corrected-shift-minus-1,derived from oscilloscope mapping with global -1 line correction
-20,SD_D2,SDIO Data Line 2,66,GPIOX_2,corrected-shift-minus-1,derived from oscilloscope mapping with global -1 line correction
-21,SD_D0,SDIO Data Line 0,64,GPIOX_0,corrected-shift-minus-1,derived from oscilloscope mapping with global -1 line correction
-22,SD_D1,SDIO Data Line 1,65,GPIOX_1,corrected-shift-minus-1,derived from oscilloscope mapping with global -1 line correction
+15,CHIP_EN,PMU-Enable,71,GPIOX_7,confirmed,oscilloscope-corrected final working hypothesis
+16,ESMD3,ESMD3,72,GPIOX_8,confirmed,oscilloscope-confirmed final mapping
+17,SD_CMD,SDIO Command Input,70,GPIOX_6,confirmed,oscilloscope-confirmed final mapping
+18,SD_CLK,SDIO Clock Input,69,GPIOX_5,confirmed,oscilloscope-confirmed final mapping
+19,SD_D3,SDIO Data Line 3,68,GPIOX_4,confirmed,oscilloscope-confirmed final mapping
+20,SD_D2,SDIO Data Line 2,67,GPIOX_3,confirmed,oscilloscope-confirmed final mapping
+21,SD_D0,SDIO Data Line 0,65,GPIOX_1,confirmed,oscilloscope-confirmed final mapping
+22,SD_D1,SDIO Data Line 1,66,GPIOX_2,confirmed,oscilloscope-confirmed final mapping
 23,GND,GND,,,,
 24,GPIO1,GPIO1,,,,
 25,ESMD0,ESMD0,,,,
 26,ESMD1,ESMD1,,,,
-27,IISLRCK,IISLRCK,74,GPIOX_10,corrected-shift-minus-1,derived from oscilloscope mapping with global -1 line correction
-28,IISDI,IISDI,73,GPIOX_9,corrected-shift-minus-1,derived from oscilloscope mapping with global -1 line correction
-29,IISDO,IISDO,72,GPIOX_8,corrected-shift-minus-1,derived from oscilloscope mapping with global -1 line correction
-30,IISCLK,IISCLK,75,GPIOX_11,corrected-shift-minus-1,derived from oscilloscope mapping with global -1 line correction
+27,IISLRCK,IISLRCK,75,GPIOX_11,confirmed,oscilloscope-confirmed final mapping
+28,IISDI,IISDI,74,GPIOX_10,confirmed,oscilloscope-confirmed final mapping
+29,IISDO,IISDO,73,GPIOX_9,confirmed,oscilloscope-confirmed final mapping
+30,IISCLK,IISCLK,76,GPIOX_12,confirmed,oscilloscope-confirmed final mapping
 31,GND,GND,,,,
 32,GND,GND,,,,
 33,ESMD2,ESMD2,,,,
@@ -36,16 +36,16 @@ module_pin,signal,description,soc_gpio_line,soc_gpio_name,status,notes
 35,RFCTL4,RFCTL4,,,,
 36,VDD33,VDD INPUT(3.3V),,,,
 37,RFCTL5,RFCTL5,,,,
-38,RST_N,RST_N,81,GPIOX_17,corrected-shift-minus-1,derived from oscilloscope mapping with global -1 line correction
+38,RST_N,RST_N,82,GPIOX_18,confirmed,oscilloscope-corrected final working hypothesis
 39,GND,GND,,,,
-40,U0TXD,U0TXD,77,GPIOX_13,corrected-shift-minus-1,derived from oscilloscope mapping with global -1 line correction
-41,U0RXD,U0RXD,76,GPIOX_12,corrected-shift-minus-1,derived from oscilloscope mapping with global -1 line correction
-42,U0RTS,U0RTS,78,GPIOX_14,corrected-shift-minus-1,derived from oscilloscope mapping with global -1 line correction
-43,U0CTS,U0CTS,79,GPIOX_15,corrected-shift-minus-1,derived from oscilloscope mapping with global -1 line correction
+40,U0TXD,U0TXD,78,GPIOX_14,confirmed,oscilloscope-confirmed final mapping
+41,U0RXD,U0RXD,77,GPIOX_13,confirmed,oscilloscope-confirmed final mapping
+42,U0RTS,U0RTS,79,GPIOX_15,confirmed,oscilloscope-confirmed final mapping
+43,U0CTS,U0CTS,80,GPIOX_16,confirmed,oscilloscope-confirmed final mapping
 44,U2TXD,U2TXD,,,,
 45,GPIO2,GPIO2,,,,
 46,U1TXD,U1TXD,,,,
 47,U1RXD,U1RXD,,,,
 48,GND,GND,,,,
 49,U2RXD,U2RXD,,,,
-50,INT,INT,82,GPIOX_18,corrected-shift-minus-1,derived from oscilloscope mapping with global -1 line correction
+50,INT,INT,83,GPIOX_19,confirmed,oscilloscope-confirmed final mapping
