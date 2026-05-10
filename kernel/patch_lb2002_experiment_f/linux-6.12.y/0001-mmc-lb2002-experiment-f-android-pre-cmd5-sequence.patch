@@ -12,6 +12,8 @@ index fd5c75a..fd6d080 100644
 +#define LB2002_EXPF_WIFI_POWER_GPIO 583
 +#define LB2002_EXPF_WIFI_IRQ_GPIO   595
 +#define LB2002_EXPF_WIFI_RESET_GPIO 594
++static bool lb2002_expf_power_owned;
++static bool lb2002_expf_reset_owned;
  
  #include "core.h"
  #include "card.h"
@@ -31,8 +33,12 @@ index fd5c75a..fd6d080 100644
 +		 "lb2002-expf pre-cmd5 begin host_ocr_avail=%#x host_ocr_avail_sdio=%#x f_init=%u\n",
 +		 host->ocr_avail, host->ocr_avail_sdio, host->f_init);
 +
-+	ret = gpio_request(LB2002_EXPF_WIFI_POWER_GPIO, "lb2002-expf-power");
-+	if (!ret) {
++	if (!lb2002_expf_power_owned) {
++		ret = gpio_request(LB2002_EXPF_WIFI_POWER_GPIO, "lb2002-expf-power");
++		if (!ret)
++			lb2002_expf_power_owned = true;
++	}
++	if (lb2002_expf_power_owned) {
 +		ret = gpio_direction_output(LB2002_EXPF_WIFI_POWER_GPIO, 0);
 +		dev_warn(mmc_dev(host),
 +			 "lb2002-expf power disable gpio=%d ret=%d\n",
@@ -44,15 +50,18 @@ index fd5c75a..fd6d080 100644
 +			 LB2002_EXPF_WIFI_POWER_GPIO, ret);
 +		msleep(120);
 +		pwr_val = gpio_get_value(LB2002_EXPF_WIFI_POWER_GPIO);
-+		gpio_free(LB2002_EXPF_WIFI_POWER_GPIO);
 +	} else {
 +		dev_warn(mmc_dev(host),
 +			 "lb2002-expf power gpio request failed gpio=%d ret=%d\n",
 +			 LB2002_EXPF_WIFI_POWER_GPIO, ret);
 +	}
 +
-+	ret = gpio_request(LB2002_EXPF_WIFI_RESET_GPIO, "lb2002-expf-reset");
-+	if (!ret) {
++	if (!lb2002_expf_reset_owned) {
++		ret = gpio_request(LB2002_EXPF_WIFI_RESET_GPIO, "lb2002-expf-reset");
++		if (!ret)
++			lb2002_expf_reset_owned = true;
++	}
++	if (lb2002_expf_reset_owned) {
 +		ret = gpio_direction_output(LB2002_EXPF_WIFI_RESET_GPIO, 0);
 +		dev_warn(mmc_dev(host),
 +			 "lb2002-expf reset assert gpio=%d ret=%d\n",
@@ -64,7 +73,6 @@ index fd5c75a..fd6d080 100644
 +			 LB2002_EXPF_WIFI_RESET_GPIO, ret);
 +		msleep(120);
 +		rst_val = gpio_get_value(LB2002_EXPF_WIFI_RESET_GPIO);
-+		gpio_free(LB2002_EXPF_WIFI_RESET_GPIO);
 +	} else {
 +		dev_warn(mmc_dev(host),
 +			 "lb2002-expf reset gpio request failed gpio=%d ret=%d\n",
@@ -86,8 +94,9 @@ index fd5c75a..fd6d080 100644
 +	}
 +
 +	dev_warn(mmc_dev(host),
-+		 "lb2002-expf pre-cmd5 end power_val=%d reset_val=%d irq_val=%d\n",
-+		 pwr_val, rst_val, irq_val);
++		 "lb2002-expf pre-cmd5 end power_val=%d reset_val=%d irq_val=%d ios_vdd=%u ios_power_mode=%u ios_signal_voltage=%u ios_clock=%u\n",
++		 pwr_val, rst_val, irq_val, host->ios.vdd, host->ios.power_mode,
++		 host->ios.signal_voltage, host->ios.clock);
 +}
 +
  static int mmc_sdio_init_card(struct mmc_host *host, u32 ocr,
@@ -100,8 +109,9 @@ index fd5c75a..fd6d080 100644
 +	lb2002_expf_android_pre_cmd5_sequence(host);
  	err = mmc_send_io_op_cond(host, 0, &ocr);
 +	dev_warn(mmc_dev(host),
-+		 "lb2002-expf attach-sdio probe-cmd5 err=%d probe_ocr=%#x host_ocr_avail=%#x host_ocr_avail_sdio=%#x\n",
-+		 err, ocr, host->ocr_avail, host->ocr_avail_sdio);
++		 "lb2002-expf attach-sdio probe-cmd5 err=%d probe_ocr=%#x host_ocr_avail=%#x host_ocr_avail_sdio=%#x ios_vdd=%u ios_power_mode=%u ios_signal_voltage=%u ios_clock=%u\n",
++		 err, ocr, host->ocr_avail, host->ocr_avail_sdio, host->ios.vdd,
++		 host->ios.power_mode, host->ios.signal_voltage, host->ios.clock);
  	if (err)
  		return err;
  
