@@ -195,6 +195,7 @@ jobs:
           target_common="rebuild/build-armbian/armbian-files/common-files"
           target_bootfs="rebuild/build-armbian/armbian-files/different-files/${{ inputs.armbian_board }}/bootfs"
           model_conf="rebuild/build-armbian/armbian-files/common-files/etc/model_database.conf"
+          kernel_cache_dir="rebuild/build-armbian/kernel/${{ inputs.kernel_usage }}/${{ inputs.armbian_kernel }}"
           mkdir -p "${target_common}" "${target_bootfs}"
 
           # Files under boot/ must land on the FAT boot partition for U-Boot.
@@ -224,6 +225,30 @@ jobs:
           echo "Forced model_database.conf FDTFILE for board=${{ inputs.armbian_board }} to ${custom_fdt_name}"
           grep -nE "^[^#].*:${{ inputs.armbian_board }}:.*$" "${model_conf}" || true
 
+          # Preseed the exact kernel bundle locally so ophub ./rebuild does not
+          # fetch a stale mutable release asset behind our back.
+          rm -rf "${kernel_cache_dir}"
+          mkdir -p "rebuild/build-armbian/kernel/${{ inputs.kernel_usage }}"
+          kernel_bundle_url="https://github.com/${{ inputs.kernel_repo }}/releases/download/kernel_${{ inputs.kernel_usage }}/${{ inputs.armbian_kernel }}.tar.gz?ts=$(date +%s)"
+          echo "Prefetching kernel bundle: ${kernel_bundle_url}"
+          curl -fL --retry 5 --retry-delay 5 -o "${kernel_cache_dir}.tar.gz" "${kernel_bundle_url}"
+          tar -xzf "${kernel_cache_dir}.tar.gz" -C "rebuild/build-armbian/kernel/${{ inputs.kernel_usage }}"
+          test -d "${kernel_cache_dir}"
+          test -f "${kernel_cache_dir}/sha256sums"
+
+          kernel_boot="$(find "${kernel_cache_dir}" -maxdepth 1 -type f -name 'boot-*.tar.gz' | head -n 1)"
+          test -n "${kernel_boot}"
+          kernel_member="$(tar -tf "${kernel_boot}" | grep -E '(^|/|\.\/)vmlinuz-.*lb2002can$' | head -n 1)"
+          test -n "${kernel_member}"
+          tmp_kernel="/tmp/lb2002-kernel-check.bin"
+          rm -f "${tmp_kernel}"
+          tar -xOf "${kernel_boot}" "${kernel_member}" > "${tmp_kernel}"
+          test -s "${tmp_kernel}"
+          if ! strings "${tmp_kernel}" | grep -q 'lb2002-expf'; then
+            echo "error: prefetched kernel bundle is stale and lacks lb2002-expf markers: ${kernel_bundle_url}"
+            exit 1
+          fi
+
           # Any non-boot overlay content remains common rootfs content.
           while IFS= read -r item; do
             cp -avf --no-preserve=ownership "${item}" "${target_common}/"
@@ -241,21 +266,6 @@ jobs:
             -a "false" \
             -t "${{ inputs.armbian_fstype }}" \
             -n "${{ inputs.builder_name }}"
-
-          # Fail fast if rebuild consumed a kernel bundle without the current
-          # LB2002 experiment instrumentation.
-          kernel_boot="$(find /builder/rebuild/build-armbian/kernel -type f -name 'boot-*.tar.gz' | sort | tail -n 1)"
-          test -n "${kernel_boot}"
-          kernel_member="$(tar -tf "${kernel_boot}" | grep -E '(^|/|\.\/)vmlinuz-.*lb2002can$' | head -n 1)"
-          test -n "${kernel_member}"
-          tmp_kernel="/tmp/lb2002-kernel-check.bin"
-          rm -f "${tmp_kernel}"
-          tar -xOf "${kernel_boot}" "${kernel_member}" > "${tmp_kernel}"
-          test -s "${tmp_kernel}"
-          if ! strings "${tmp_kernel}" | grep -q 'lb2002-expf'; then
-            echo "error: rebuilt image consumed a kernel bundle without lb2002-expf markers: ${kernel_boot}"
-            exit 1
-          fi
 
           echo "PACKAGED_OUTPUTPATH=/builder/rebuild/build/output/images" >> ${GITHUB_ENV}
           echo "PACKAGED_STATUS=success" >> ${GITHUB_ENV}
