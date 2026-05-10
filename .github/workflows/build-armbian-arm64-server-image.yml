@@ -194,6 +194,7 @@ jobs:
           custom_files="${{ github.workspace }}/${{ inputs.armbian_files }}"
           target_common="rebuild/build-armbian/armbian-files/common-files"
           target_bootfs="rebuild/build-armbian/armbian-files/different-files/${{ inputs.armbian_board }}/bootfs"
+          model_conf="rebuild/build-armbian/armbian-files/common-files/etc/model_database.conf"
           mkdir -p "${target_common}" "${target_bootfs}"
 
           # Files under boot/ must land on the FAT boot partition for U-Boot.
@@ -209,6 +210,19 @@ jobs:
               dtc -I dts -O dtb -o "${dtb}" "${dts}"
             done < <(find "${target_bootfs}/dtb/amlogic" -maxdepth 1 -type f -name '*.dts' | sort)
           fi
+
+          # ophub ./rebuild rewrites uEnv.txt from model_database.conf during
+          # refactor_bootfs(), so force that board entry to our custom DTB.
+          custom_fdt_name="$(sed -n 's/^FDT=\/dtb\/amlogic\///p' "${custom_files}/boot/uEnv.txt" | head -n1 | tr -d '\r')"
+          test -n "${custom_fdt_name}"
+          test -f "${model_conf}"
+          awk -F: -v OFS=: -v board="${{ inputs.armbian_board }}" -v fdt="${custom_fdt_name}" '
+            $14 == board { $4 = fdt }
+            { print }
+          ' "${model_conf}" > "${model_conf}.tmp"
+          mv -f "${model_conf}.tmp" "${model_conf}"
+          echo "Forced model_database.conf FDTFILE for board=${{ inputs.armbian_board }} to ${custom_fdt_name}"
+          grep -nE "^[^#].*:${{ inputs.armbian_board }}:.*$" "${model_conf}" || true
 
           # Any non-boot overlay content remains common rootfs content.
           while IFS= read -r item; do
@@ -227,6 +241,21 @@ jobs:
             -a "false" \
             -t "${{ inputs.armbian_fstype }}" \
             -n "${{ inputs.builder_name }}"
+
+          # Fail fast if rebuild consumed a kernel bundle without the current
+          # LB2002 experiment instrumentation.
+          kernel_boot="$(find /builder/rebuild/build-armbian/kernel -type f -name 'boot-*.tar.gz' | sort | tail -n 1)"
+          test -n "${kernel_boot}"
+          kernel_member="$(tar -tf "${kernel_boot}" | grep -E '(^|/|\.\/)vmlinuz-.*lb2002can$' | head -n 1)"
+          test -n "${kernel_member}"
+          tmp_kernel="/tmp/lb2002-kernel-check.bin"
+          rm -f "${tmp_kernel}"
+          tar -xOf "${kernel_boot}" "${kernel_member}" > "${tmp_kernel}"
+          test -s "${tmp_kernel}"
+          if ! strings "${tmp_kernel}" | grep -q 'lb2002-expf'; then
+            echo "error: rebuilt image consumed a kernel bundle without lb2002-expf markers: ${kernel_boot}"
+            exit 1
+          fi
 
           echo "PACKAGED_OUTPUTPATH=/builder/rebuild/build/output/images" >> ${GITHUB_ENV}
           echo "PACKAGED_STATUS=success" >> ${GITHUB_ENV}
