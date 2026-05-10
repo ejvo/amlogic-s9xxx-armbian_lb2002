@@ -226,12 +226,22 @@ jobs:
           test -n "${custom_fdt_name}"
           test -f "${model_conf}"
           awk -F: -v OFS=: -v board="${{ inputs.armbian_board }}" -v fdt="${custom_fdt_name}" '
-            $14 == board { $4 = fdt }
+            {
+              board_field = $14
+              gsub(/^[[:space:]]+|[[:space:]]+$/, "", board_field)
+            }
+            board_field == board { $4 = fdt }
             { print }
           ' "${model_conf}" > "${model_conf}.tmp"
           mv -f "${model_conf}.tmp" "${model_conf}"
           echo "Forced model_database.conf FDTFILE for board=${{ inputs.armbian_board }} to ${custom_fdt_name}"
-          grep -nE "^[^#].*:${{ inputs.armbian_board }}:.*$" "${model_conf}" || true
+          awk -F: -v board="${{ inputs.armbian_board }}" '
+            {
+              board_field = $14
+              gsub(/^[[:space:]]+|[[:space:]]+$/, "", board_field)
+            }
+            board_field == board { print NR ":" $0 }
+          ' "${model_conf}" || true
 
           # Preseed the exact kernel bundle locally so ophub ./rebuild does not
           # fetch a stale mutable release asset behind our back. Prefer the
@@ -283,8 +293,8 @@ jobs:
           rm -f "${tmp_kernel}"
           tar -xOf "${kernel_boot}" "${kernel_member}" > "${tmp_kernel}"
           test -s "${tmp_kernel}"
-          if ! strings "${tmp_kernel}" | grep -q 'lb2002-expf'; then
-            echo "error: prefetched kernel bundle lacks lb2002-expf markers for requested kernel=${{ inputs.armbian_kernel }} sign=${{ inputs.kernel_sign }}"
+          if ! strings "${tmp_kernel}" | grep -q 'lb2002-expg'; then
+            echo "error: prefetched kernel bundle lacks lb2002-expg markers for requested kernel=${{ inputs.armbian_kernel }} sign=${{ inputs.kernel_sign }}"
             exit 1
           fi
 
@@ -292,9 +302,6 @@ jobs:
           while IFS= read -r item; do
             cp -avf --no-preserve=ownership "${item}" "${target_common}/"
           done < <(find "${custom_files}" -mindepth 1 -maxdepth 1 ! -name boot)
-
-          chmod +x "${target_common}/usr/local/sbin/"lb2002-pinprobe-*.sh 2>/dev/null || true
-          chmod +x "${target_common}/usr/local/sbin/"lb2002-sdio-*.sh 2>/dev/null || true
 
           cd rebuild
           sudo ./rebuild \

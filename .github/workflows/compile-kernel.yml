@@ -180,7 +180,7 @@ jobs:
           kernel_sign: ${{ inputs.kernel_sign }}
           kernel_toolchain: ${{ inputs.kernel_toolchain }}
           kernel_config: kernel/config_lb2002
-          kernel_patch: kernel/patch_lb2002_experiment_f
+          kernel_patch: kernel/patch_lb2002_experiment_g
           auto_patch: true
           config_flavor: ""
           ccache_clear: ${{ inputs.ccache_clear }}
@@ -258,7 +258,7 @@ jobs:
           fi
           tar -xOf /tmp/boot-nested.tar.gz "${kernel_name}" > /tmp/kernel-vmlinuz-check
           test -s /tmp/kernel-vmlinuz-check
-          grep -a 'lb2002-expf' /tmp/kernel-vmlinuz-check
+          grep -a 'lb2002-expg' /tmp/kernel-vmlinuz-check
           rm -f /tmp/kernel-vmlinuz-check /tmp/boot-nested.tar.gz
 
       - name: Create exact-version kernel release aliases

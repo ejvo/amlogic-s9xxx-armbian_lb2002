@@ -1,0 +1,49 @@
+/dts-v1/;
+/include/ "meson-g12a-s905l3a-lb2002-pinprobe.dts"
+
+/ {
+    model = "LB2002 White S905L3A EXPERIMENT G V1";
+    compatible = "lb2002-white-experiment-g-v1", "m401a", "amlogic,g12a";
+    amlogic-dt-id = "lb2002_m401a_experiment_g_v1_2g";
+};
+
+/*
+ * Experiment G:
+ * - keep the physically confirmed LB2002 GPIO map
+ * - boot with only the minimum DT changes needed for UWE bring-up
+ * - leave attach/recovery policy to the kernel-side experiment_g patch
+ */
+
+&{/soc/sd@ffe05000} {
+    status = "okay";
+    max-frequency = <25000000>;
+
+    sdio {
+        pinname = "sdio";
+        ocr_avail = <0x00200080>;
+        max_req_size = <0x00020000>;
+        card_type = <0x00000003>;
+        caps = "MMC_CAP_4_BIT_DATA", "MMC_CAP_MMC_HIGHSPEED", "MMC_CAP_SD_HIGHSPEED", "MMC_CAP_NONREMOVABLE", "MMC_PM_KEEP_POWER", "MMC_CAP_SDIO_IRQ";
+        f_min = <0x00061a80>;
+        f_max = <25000000>;
+    };
+
+    wifi@1 {
+        reg = <0x00000001>;
+        compatible = "sprd,unisoc-wifi";
+        status = "okay";
+    };
+};
+
+&{/wifi} {
+    status = "okay";
+    interrupt_pin = <0x00000034 0x00000052 0x00000000>;
+    interrupts = <0x00000000 0x0000004d 0x00000004>;
+    irq_trigger_type = "GPIO_IRQ_LOW";
+    power_on_pin = <0x00000034 0x00000046 0x00000000>;
+};
+
+&{/bt-dev} {
+    status = "okay";
+    gpio_reset = <0x00000034 0x00000051 0x00000000>;
+};
