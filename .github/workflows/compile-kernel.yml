@@ -239,6 +239,7 @@ jobs:
           grep -E '^CONFIG_CAN_MCP251XFD=m$' /tmp/kernel-config-check
 
       - name: Verify lb2002 experiment marker in packaged kernel
+        id: verify_lb2002_marker
         if: ${{ always() }}
         run: |
           set -e
@@ -261,7 +262,7 @@ jobs:
           rm -f /tmp/kernel-vmlinuz-check /tmp/boot-nested.tar.gz
 
       - name: Create exact-version kernel release aliases
-        if: ${{ steps.compile_kernel.outcome == 'success' && !cancelled() }}
+        if: ${{ steps.verify_lb2002_marker.outcome == 'success' && !cancelled() }}
         run: |
           set -e
           outdir="/builder/compile-kernel/output"
@@ -337,7 +338,7 @@ jobs:
 
       - name: Upload Kernel to Release
         uses: ncipollo/release-action@main
-        if: ${{ steps.compile_kernel.outcome == 'success' && !cancelled() }}
+        if: ${{ steps.verify_lb2002_marker.outcome == 'success' && !cancelled() }}
         with:
           tag: kernel_stable
           artifacts: /builder/compile-kernel/output/*
