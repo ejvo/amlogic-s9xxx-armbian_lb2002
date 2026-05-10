@@ -1,8 +1,8 @@
 diff --git a/drivers/mmc/core/sdio.c b/drivers/mmc/core/sdio.c
-index fd5c75a..fd6d080 100644
+index 61e15ee..7fc3eaa 100644
 --- a/drivers/mmc/core/sdio.c
 +++ b/drivers/mmc/core/sdio.c
-@@ -15,6 +15,12 @@
+@@ -15,6 +15,15 @@
  #include <linux/mmc/sdio.h>
  #include <linux/mmc/sdio_func.h>
  #include <linux/mmc/sdio_ids.h>
@@ -12,12 +12,13 @@ index fd5c75a..fd6d080 100644
 +#define LB2002_EXPF_WIFI_POWER_GPIO 583
 +#define LB2002_EXPF_WIFI_IRQ_GPIO   595
 +#define LB2002_EXPF_WIFI_RESET_GPIO 594
++
 +static bool lb2002_expf_power_owned;
 +static bool lb2002_expf_reset_owned;
  
  #include "core.h"
  #include "card.h"
-@@ -657,6 +663,77 @@ static int mmc_sdio_pre_init(struct mmc_host *host, u32 ocr,
+@@ -657,6 +666,84 @@ static int mmc_sdio_pre_init(struct mmc_host *host, u32 ocr,
   * In the case of a resume, "oldcard" will contain the card
   * we're trying to reinitialise.
   */
@@ -102,7 +103,7 @@ index fd5c75a..fd6d080 100644
  static int mmc_sdio_init_card(struct mmc_host *host, u32 ocr,
  			      struct mmc_card *oldcard)
  {
-@@ -1217,7 +1294,11 @@ int mmc_attach_sdio(struct mmc_host *host)
+@@ -1217,7 +1304,12 @@ int mmc_attach_sdio(struct mmc_host *host)
  
  	WARN_ON(!host->claimed);
  
