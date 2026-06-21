@@ -1,0 +1,143 @@
+diff --git a/drivers/mmc/core/sdio.c b/drivers/mmc/core/sdio.c
+index 61e15ee..1309c1f 100644
+--- a/drivers/mmc/core/sdio.c
++++ b/drivers/mmc/core/sdio.c
+@@ -15,6 +15,14 @@
+ #include <linux/mmc/sdio.h>
+ #include <linux/mmc/sdio_func.h>
+ #include <linux/mmc/sdio_ids.h>
++#include <linux/gpio.h>
++#include <linux/delay.h>
++
++#define LB2002_EXPJ_WIFI_POWER_GPIO 583
++#define LB2002_EXPJ_WIFI_RESET_GPIO 594
++
++static bool lb2002_expj_power_owned;
++static bool lb2002_expj_reset_owned;
+ 
+ #include "core.h"
+ #include "card.h"
+@@ -657,6 +665,98 @@ static int mmc_sdio_pre_init(struct mmc_host *host, u32 ocr,
+  * In the case of a resume, "oldcard" will contain the card
+  * we're trying to reinitialise.
+  */
++static bool lb2002_expj_target_host(struct mmc_host *host)
++{
++	return !strcmp(dev_name(mmc_dev(host)), "ffe03000.sd");
++}
++
++static void lb2002_expj_prepare_module(struct mmc_host *host)
++{
++	int ret;
++	u32 recovery_ocr;
++
++	if (!lb2002_expj_target_host(host))
++		return;
++
++	dev_warn(mmc_dev(host),
++		 "lb2002-expj prepare begin host_ocr_avail=%#x host_ocr_avail_sdio=%#x ios_vdd=%u ios_power_mode=%u ios_signal_voltage=%u ios_clock=%u\n",
++		 host->ocr_avail, host->ocr_avail_sdio, host->ios.vdd,
++		 host->ios.power_mode, host->ios.signal_voltage, host->ios.clock);
++
++	if (!lb2002_expj_power_owned) {
++		ret = gpio_request(LB2002_EXPJ_WIFI_POWER_GPIO, "lb2002-expj-power");
++		if (!ret)
++			lb2002_expj_power_owned = true;
++	}
++
++	if (!lb2002_expj_reset_owned) {
++		ret = gpio_request(LB2002_EXPJ_WIFI_RESET_GPIO, "lb2002-expj-reset");
++		if (!ret)
++			lb2002_expj_reset_owned = true;
++	}
++
++	if (lb2002_expj_reset_owned) {
++		ret = gpio_direction_output(LB2002_EXPJ_WIFI_RESET_GPIO, 0);
++		dev_warn(mmc_dev(host),
++			 "lb2002-expj reset assert gpio=%d ret=%d\n",
++			 LB2002_EXPJ_WIFI_RESET_GPIO, ret);
++	}
++
++	if (lb2002_expj_power_owned) {
++		ret = gpio_direction_output(LB2002_EXPJ_WIFI_POWER_GPIO, 0);
++		dev_warn(mmc_dev(host),
++			 "lb2002-expj power force-low gpio=%d ret=%d\n",
++			 LB2002_EXPJ_WIFI_POWER_GPIO, ret);
++	}
++	msleep(100);
++
++	if (lb2002_expj_power_owned) {
++		ret = gpio_direction_output(LB2002_EXPJ_WIFI_POWER_GPIO, 1);
++		dev_warn(mmc_dev(host),
++			 "lb2002-expj chip-en high gpio=%d ret=%d\n",
++			 LB2002_EXPJ_WIFI_POWER_GPIO, ret);
++	}
++	msleep(20);
++
++	if (lb2002_expj_reset_owned) {
++		ret = gpio_direction_output(LB2002_EXPJ_WIFI_RESET_GPIO, 1);
++		dev_warn(mmc_dev(host),
++			 "lb2002-expj reset release gpio=%d ret=%d\n",
++			 LB2002_EXPJ_WIFI_RESET_GPIO, ret);
++	}
++	msleep(30);
++
++	if (lb2002_expj_power_owned) {
++		ret = gpio_direction_output(LB2002_EXPJ_WIFI_POWER_GPIO, 0);
++		dev_warn(mmc_dev(host),
++			 "lb2002-expj aml pulse-low gpio=%d ret=%d\n",
++			 LB2002_EXPJ_WIFI_POWER_GPIO, ret);
++		msleep(100);
++		ret = gpio_direction_output(LB2002_EXPJ_WIFI_POWER_GPIO, 1);
++		dev_warn(mmc_dev(host),
++			 "lb2002-expj aml pulse-high gpio=%d ret=%d\n",
++			 LB2002_EXPJ_WIFI_POWER_GPIO, ret);
++	}
++	msleep(30);
++
++	recovery_ocr = host->ocr_avail_sdio ? host->ocr_avail_sdio : host->ocr_avail;
++	dev_warn(mmc_dev(host),
++		 "lb2002-expj host power recycle begin recovery_ocr=%#x ios_vdd=%u ios_power_mode=%u ios_signal_voltage=%u ios_clock=%u\n",
++		 recovery_ocr, host->ios.vdd, host->ios.power_mode,
++		 host->ios.signal_voltage, host->ios.clock);
++	mmc_power_off(host);
++	msleep(30);
++	mmc_power_up(host, recovery_ocr);
++	msleep(30);
++	sdio_reset(host);
++	mmc_go_idle(host);
++	mmc_send_if_cond(host, recovery_ocr);
++	dev_warn(mmc_dev(host),
++		 "lb2002-expj host power recycle end ios_vdd=%u ios_power_mode=%u ios_signal_voltage=%u ios_clock=%u\n",
++		 host->ios.vdd, host->ios.power_mode, host->ios.signal_voltage,
++		 host->ios.clock);
++}
++
+ static int mmc_sdio_init_card(struct mmc_host *host, u32 ocr,
+ 			      struct mmc_card *oldcard)
+ {
+@@ -1217,7 +1317,24 @@ int mmc_attach_sdio(struct mmc_host *host)
+ 
+ 	WARN_ON(!host->claimed);
+ 
++	lb2002_expj_prepare_module(host);
+ 	err = mmc_send_io_op_cond(host, 0, &ocr);
++	dev_warn(mmc_dev(host),
++		 "lb2002-expj attach-sdio first-cmd5 err=%d probe_ocr=%#x host_ocr_avail=%#x host_ocr_avail_sdio=%#x ios_vdd=%u ios_power_mode=%u ios_signal_voltage=%u ios_clock=%u\n",
++		 err, ocr, host->ocr_avail, host->ocr_avail_sdio, host->ios.vdd,
++		 host->ios.power_mode, host->ios.signal_voltage, host->ios.clock);
++	if ((!err && !ocr) || err == -ETIMEDOUT) {
++		dev_warn(mmc_dev(host),
++			 "lb2002-expj retrying CMD5 after aml-style recovery err=%d probe_ocr=%#x\n",
++			 err, ocr);
++		lb2002_expj_prepare_module(host);
++		err = mmc_send_io_op_cond(host, 0, &ocr);
++		dev_warn(mmc_dev(host),
++			 "lb2002-expj attach-sdio second-cmd5 err=%d probe_ocr=%#x host_ocr_avail=%#x host_ocr_avail_sdio=%#x ios_vdd=%u ios_power_mode=%u ios_signal_voltage=%u ios_clock=%u\n",
++			 err, ocr, host->ocr_avail, host->ocr_avail_sdio,
++			 host->ios.vdd, host->ios.power_mode,
++			 host->ios.signal_voltage, host->ios.clock);
++	}
+ 	if (err)
+ 		return err;
+ 

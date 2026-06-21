@@ -1,0 +1,17 @@
+/dts-v1/;
+/include/ "meson-g12a-s905l3a-lb2002-experiment-h-v1.dts"
+
+/ {
+    model = "LB2002 White S905L3A EXPERIMENT J V1";
+    compatible = "lb2002-white-experiment-j-v1", "lb2002-white-experiment-h-v1", "lb2002-white-experiment-g-v1", "m401a", "amlogic,g12a";
+    amlogic-dt-id = "lb2002_m401a_experiment_j_v1_2g";
+};
+
+/*
+ * Experiment J:
+ * - NullYing-style SDIO host test: move UWE5621DS from /soc/sd@ffe05000 to /soc/sd@ffe03000
+ * - use wifi@1 compatible = "uwcnmodem,we5621ds"
+ * - keep LB2002 current reset GPIO hypothesis 0x46
+ * - add NullYing pwrseq delays: 1000 ms post-power-on, 10000 us power-off
+ * - do not switch uEnv.txt automatically
+ */
