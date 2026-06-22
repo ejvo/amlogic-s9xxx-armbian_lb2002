@@ -195,14 +195,6 @@ jobs:
           ls -lah /builder/compile-kernel/output || true
           find /builder/compile-kernel/output -maxdepth 2 -type f | sort || true
 
-      - name: Upload kernel artifacts
-        uses: actions/upload-artifact@v4
-        if: ${{ always() }}
-        with:
-          name: kernel-output-${{ inputs.kernel_version }}${{ inputs.kernel_sign }}
-          path: /builder/compile-kernel/output/**
-          if-no-files-found: error
-
       - name: Verify kernel output exists
         if: ${{ always() }}
         run: |
@@ -335,7 +327,21 @@ jobs:
           echo "EXACT_KERNEL_VERSION=${exact_version}" >> ${GITHUB_ENV}
           echo "IMMUTABLE_REQUESTED_KERNEL_ASSET=${requested_main_asset}" >> ${GITHUB_ENV}
           echo "IMMUTABLE_EXACT_KERNEL_ASSET=${exact_main_asset}" >> ${GITHUB_ENV}
+          test -f "${outdir}/${requested_main_asset}"
+          test -f "${outdir}/${requested_deb_asset}"
+          test -f "${outdir}/${exact_main_asset}"
+          test -f "${outdir}/${exact_deb_asset}"
+          echo "Immutable release assets created:"
+          find "${outdir}" -maxdepth 1 -type f -name "*-${sign_tag}-g*-r*.tar.gz" -printf "  %f\n" | sort
           sudo ls -lh "${outdir}"
+
+      - name: Upload final kernel artifacts
+        uses: actions/upload-artifact@v4
+        if: ${{ steps.verify_lb2002_marker.outcome == 'success' && !cancelled() }}
+        with:
+          name: kernel-output-${{ inputs.kernel_version }}${{ inputs.kernel_sign }}
+          path: /builder/compile-kernel/output/**
+          if-no-files-found: error
 
       - name: Upload Kernel to Release
         uses: ncipollo/release-action@main
