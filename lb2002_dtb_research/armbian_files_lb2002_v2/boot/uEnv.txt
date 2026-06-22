@@ -1,4 +1,4 @@
 LINUX=/zImage
 INITRD=/uInitrd
-FDT=/dtb/amlogic/meson-g12a-s905l3a-lb2002-experiment-g-v1.dtb
+FDT=/dtb/amlogic/meson-g12a-s905l3a-lb2002-experiment-j-v1.dtb
 APPEND=root=LABEL=ROOTFS rw rootwait rootdelay=80 rootfstype=ext4 console=ttyAML0,115200n8 earlycon=aml-uart,0xff803000,115200 ignore_loglevel loglevel=8

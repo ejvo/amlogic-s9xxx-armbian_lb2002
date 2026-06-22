@@ -25,9 +25,10 @@ on:
       armbian_kernel:
         description: "Select kernel version."
         required: false
-        default: "6.12.85"
+        default: "6.12.91"
         type: choice
         options:
+          - 6.12.91
           - 6.12.85
           - 6.12.y
           - 6.18.y
@@ -293,8 +294,8 @@ jobs:
           rm -f "${tmp_kernel}"
           tar -xOf "${kernel_boot}" "${kernel_member}" > "${tmp_kernel}"
           test -s "${tmp_kernel}"
-          if ! strings "${tmp_kernel}" | grep -q 'lb2002-expg'; then
-            echo "error: prefetched kernel bundle lacks lb2002-expg markers for requested kernel=${{ inputs.armbian_kernel }} sign=${{ inputs.kernel_sign }}"
+          if ! strings "${tmp_kernel}" | grep -q 'lb2002-expj'; then
+            echo "error: prefetched kernel bundle lacks lb2002-expj markers for requested kernel=${{ inputs.armbian_kernel }} sign=${{ inputs.kernel_sign }}"
             exit 1
           fi
 
