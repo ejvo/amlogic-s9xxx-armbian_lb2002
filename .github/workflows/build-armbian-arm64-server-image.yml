@@ -245,9 +245,8 @@ jobs:
           ' "${model_conf}" || true
 
           # Preseed the exact kernel bundle locally so ophub ./rebuild does not
-          # fetch a stale mutable release asset behind our back. Prefer the
-          # immutable asset names published by compile-kernel.yml and only
-          # fall back to the legacy mutable alias when nothing else exists.
+          # fetch a stale mutable release asset behind our back. Require the
+          # immutable asset names published by compile-kernel.yml.
           rm -rf "${kernel_cache_dir}"
           mkdir -p "rebuild/build-armbian/kernel/${{ inputs.kernel_usage }}"
           release_api="https://api.github.com/repos/${{ inputs.kernel_repo }}/releases/tags/kernel_${{ inputs.kernel_usage }}"
@@ -278,9 +277,23 @@ jobs:
               -o "${kernel_cache_dir}.tar.gz" \
               "${kernel_asset_url}"
           else
-            kernel_bundle_url="https://github.com/${{ inputs.kernel_repo }}/releases/download/kernel_${{ inputs.kernel_usage }}/${{ inputs.armbian_kernel }}.tar.gz?ts=$(date +%s)"
-            echo "warning: immutable kernel bundle not found for ${immutable_regex}; falling back to legacy alias ${kernel_bundle_url}"
-            curl -fL --retry 5 --retry-delay 5 -o "${kernel_cache_dir}.tar.gz" "${kernel_bundle_url}"
+            echo "error: immutable kernel bundle not found for ${immutable_regex}"
+            echo "Recent ${{ inputs.kernel_sign }} assets in kernel_${{ inputs.kernel_usage }}:"
+            curl -fsSL --retry 5 --retry-delay 5 \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              "${release_api}" |
+              jq -r --arg sign "${{ inputs.kernel_sign }}" '
+                .assets
+                | map(select(.name | test("^[0-9]+\\.[0-9]+\\.[0-9]+-" + $sign + "-g[0-9a-f]{8}-r[0-9]+\\.tar\\.gz$")))
+                | sort_by(.updated_at)
+                | reverse
+                | .[0:20]
+                | .[]
+                | "  " + .name + "  updated_at=" + .updated_at
+              '
+            echo "Run the kernel workflow first for the matching series, for example kernel_version=6.12.y kernel_auto=true kernel_sign=-${{ inputs.kernel_sign }}, then rerun this image workflow."
+            exit 1
           fi
           tar -xzf "${kernel_cache_dir}.tar.gz" -C "rebuild/build-armbian/kernel/${{ inputs.kernel_usage }}"
           test -d "${kernel_cache_dir}"
