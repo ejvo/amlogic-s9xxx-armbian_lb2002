@@ -310,8 +310,8 @@ jobs:
           rm -f "${tmp_kernel}"
           tar -xOf "${kernel_boot}" "${kernel_member}" > "${tmp_kernel}"
           test -s "${tmp_kernel}"
-          if ! strings "${tmp_kernel}" | grep -q 'lb2002-expj'; then
-            echo "error: prefetched kernel bundle lacks lb2002-expj markers for requested kernel=${{ inputs.armbian_kernel }} sign=${{ inputs.kernel_sign }}"
+          if ! strings "${tmp_kernel}" | grep -q 'lb2002-expk'; then
+            echo "error: prefetched kernel bundle lacks lb2002-expk markers for requested kernel=${{ inputs.armbian_kernel }} sign=${{ inputs.kernel_sign }}"
             exit 1
           fi
 

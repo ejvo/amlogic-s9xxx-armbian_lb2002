@@ -1,0 +1,45 @@
+/dts-v1/;
+/include/ "meson-g12a-s905l3a-lb2002-experiment-h-v1.dts"
+
+/ {
+    model = "LB2002 White S905L3A EXPERIMENT K V1";
+    compatible = "lb2002-white-experiment-k-v1", "lb2002-white-experiment-h-v1", "lb2002-white-experiment-g-v1", "m401a", "amlogic,g12a";
+    amlogic-dt-id = "lb2002_m401a_experiment_k_v1_2g";
+};
+
+&{/soc/sd@ffe05000} {
+    status = "okay";
+    bus-width = <4>;
+    max-frequency = <25000000>;
+    mmc-pwrseq = <&{/sdio-pwrseq}>;
+    vmmc-supply = <0x00000035>;
+    vqmmc-supply = <0x0000012d>;
+    cap-sdio-irq;
+    non-removable;
+    keep-power-in-suspend;
+
+    wifi@1 {
+        compatible = "uwcnmodem,we5621ds";
+        reg = <0x00000001>;
+        status = "okay";
+    };
+};
+
+&{/sdio-pwrseq} {
+    post-power-on-delay-ms = <1000>;
+    power-off-delay-us = <10000>;
+};
+
+&{/wifi} {
+    compatible = "amlogic,uwe5621-irq";
+    status = "okay";
+    irq_trigger_type = "GPIO_IRQ_LOW";
+};
+
+/*
+ * Experiment K:
+ * - Android confirms UWE5621DS enumerates as sdio:8800 on ffe05000.sd2
+ * - keep experiment-h 32 kHz clock and pwrseq path
+ * - add explicit vmmc/vqmmc supplies to avoid dummy-supply rejection
+ * - leave ffe03000 out of the Wi-Fi path
+ */
