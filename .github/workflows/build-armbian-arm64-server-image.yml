@@ -207,10 +207,7 @@ jobs:
           model_conf="rebuild/build-armbian/armbian-files/common-files/etc/model_database.conf"
           kernel_cache_dir="rebuild/build-armbian/kernel/${{ inputs.kernel_usage }}/${{ inputs.armbian_kernel }}"
           rebuild_kernel="${{ inputs.armbian_kernel }}"
-          if [[ "${rebuild_kernel}" =~ ^([0-9]+)\.([0-9]+)\.[0-9]+$ ]]; then
-            rebuild_kernel="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.y"
-          fi
-          echo "Using exact prefetched kernel=${{ inputs.armbian_kernel }} and rebuild kernel selector=${rebuild_kernel}"
+          echo "Using exact prefetched kernel=${rebuild_kernel}"
           mkdir -p "${target_common}" "${target_bootfs}"
 
           # Files under boot/ must land on the FAT boot partition for U-Boot.
