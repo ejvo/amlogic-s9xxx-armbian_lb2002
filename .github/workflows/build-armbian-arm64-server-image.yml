@@ -219,9 +219,10 @@ jobs:
           if [ -d "${target_bootfs}/dtb/amlogic" ]; then
             while IFS= read -r dts; do
               dtb="${dts%.dts}.dtb"
+              dts_dir="$(dirname "${dts}")"
               echo "Compiling local DTS: ${dts} -> ${dtb}"
-              dtc -I dts -O dtb -o "${dtb}" "${dts}"
-            done < <(find "${target_bootfs}/dtb/amlogic" -maxdepth 1 -type f -name '*.dts' | sort)
+              dtc -I dts -O dtb -i "${dts_dir}" -o "${dtb}" "${dts}"
+            done < <(find "${target_bootfs}/dtb/amlogic" -maxdepth 1 -type f -name '*.dts' ! -name '*.full.dts' | sort)
           fi
 
           # ophub ./rebuild rewrites uEnv.txt from model_database.conf during

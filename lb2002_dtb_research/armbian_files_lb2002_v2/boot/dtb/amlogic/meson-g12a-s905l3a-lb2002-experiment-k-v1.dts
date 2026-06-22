@@ -1,10 +1,26 @@
 /dts-v1/;
-/include/ "meson-g12a-s905l3a-lb2002-experiment-h-v1.dts"
+/include/ "meson-g12a-s905l3a-lb2002-experiment-g-v1.dts"
 
 / {
     model = "LB2002 White S905L3A EXPERIMENT K V1";
     compatible = "lb2002-white-experiment-k-v1", "lb2002-white-experiment-h-v1", "lb2002-white-experiment-g-v1", "m401a", "amlogic,g12a";
     amlogic-dt-id = "lb2002_m401a_experiment_k_v1_2g";
+
+    wifi32k {
+        compatible = "pwm-clock";
+        #clock-cells = <0>;
+        clock-frequency = <0x00008000>;
+        pwms = <&{/soc/bus@ffd00000/pwm@19000} 0x00000000 0x00007736 0x00000000>;
+    };
+
+    sdio-pwrseq {
+        compatible = "mmc-pwrseq-simple";
+        reset-gpios = <0x00000034 0x00000046 0x00000001>;
+        post-power-on-delay-ms = <1000>;
+        power-off-delay-us = <10000>;
+        clocks = <&{/wifi32k}>;
+        clock-names = "ext_clock";
+    };
 };
 
 &{/soc/sd@ffe05000} {
@@ -23,11 +39,6 @@
         reg = <0x00000001>;
         status = "okay";
     };
-};
-
-&{/sdio-pwrseq} {
-    post-power-on-delay-ms = <1000>;
-    power-off-delay-us = <10000>;
 };
 
 &{/wifi} {
