@@ -225,9 +225,9 @@ def build() -> None:
 };
 
 &{/soc/sd@ffe05000} {
-    /delete-node/ wifi@1;
     /delete-property/ mmc-pwrseq;
     status = "disabled";
+    /delete-node/ wifi@1;
 };
 
 &{/wifi} {
