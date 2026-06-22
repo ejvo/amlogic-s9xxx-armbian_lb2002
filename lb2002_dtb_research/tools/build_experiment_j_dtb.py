@@ -175,12 +175,65 @@ def build() -> None:
     OUTPUT_DTS.write_text(fdt.to_dts(), encoding="utf-8")
     OUTPUT_STUB_DTS.write_text(
         """/dts-v1/;
-/include/ "meson-g12a-s905l3a-lb2002-experiment-h-v1.dts"
+/include/ "meson-g12a-s905l3a-lb2002-experiment-g-v1.dts"
 
 / {
     model = "LB2002 White S905L3A EXPERIMENT J V1";
     compatible = "lb2002-white-experiment-j-v1", "lb2002-white-experiment-h-v1", "lb2002-white-experiment-g-v1", "m401a", "amlogic,g12a";
     amlogic-dt-id = "lb2002_m401a_experiment_j_v1_2g";
+
+    aliases {
+        mmc0 = "/soc/sd@ffe03000";
+        mmc1 = "/soc/sd@ffe05000";
+        sd_emmc_a = "/soc/sd@ffe03000";
+        sd_emmc_b = "/soc/sd@ffe05000";
+    };
+
+    wifi32k: wifi32k {
+        compatible = "pwm-clock";
+        #clock-cells = <0>;
+        clock-frequency = <0x00008000>;
+        pwms = <&{/soc/bus@ffd00000/pwm@19000} 0x00000000 0x00007736 0x00000000>;
+    };
+
+    sdio_pwrseq: sdio-pwrseq {
+        compatible = "mmc-pwrseq-simple";
+        reset-gpios = <0x00000034 0x00000046 0x00000001>;
+        post-power-on-delay-ms = <1000>;
+        power-off-delay-us = <10000>;
+        clocks = <&wifi32k>;
+        clock-names = "ext_clock";
+    };
+};
+
+&{/soc/sd@ffe03000} {
+    status = "okay";
+    bus-width = <4>;
+    max-frequency = <25000000>;
+    mmc-pwrseq = <&sdio_pwrseq>;
+    vmmc-supply = <0x00000035>;
+    vqmmc-supply = <0x0000012d>;
+    cap-sdio-irq;
+    non-removable;
+    keep-power-in-suspend;
+
+    wifi@1 {
+        compatible = "uwcnmodem,we5621ds";
+        reg = <0x00000001>;
+        status = "okay";
+    };
+};
+
+&{/soc/sd@ffe05000} {
+    /delete-node/ wifi@1;
+    /delete-property/ mmc-pwrseq;
+    status = "disabled";
+};
+
+&{/wifi} {
+    compatible = "amlogic,uwe5621-irq";
+    status = "okay";
+    irq_trigger_type = "GPIO_IRQ_HIGH";
 };
 
 /*
