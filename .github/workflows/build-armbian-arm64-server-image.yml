@@ -25,9 +25,10 @@ on:
       armbian_kernel:
         description: "Select kernel version."
         required: false
-        default: "6.12.y"
+        default: "6.12.94"
         type: choice
         options:
+          - 6.12.94
           - 6.12.93
           - 6.12.91
           - 6.12.85
