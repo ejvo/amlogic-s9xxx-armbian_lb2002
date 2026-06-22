@@ -25,7 +25,7 @@ on:
       armbian_kernel:
         description: "Select kernel version."
         required: false
-        default: "6.12.93"
+        default: "6.12.y"
         type: choice
         options:
           - 6.12.93
@@ -205,9 +205,6 @@ jobs:
           target_common="rebuild/build-armbian/armbian-files/common-files"
           target_bootfs="rebuild/build-armbian/armbian-files/different-files/${{ inputs.armbian_board }}/bootfs"
           model_conf="rebuild/build-armbian/armbian-files/common-files/etc/model_database.conf"
-          kernel_cache_dir="rebuild/build-armbian/kernel/${{ inputs.kernel_usage }}/${{ inputs.armbian_kernel }}"
-          rebuild_kernel="${{ inputs.armbian_kernel }}"
-          echo "Using exact prefetched kernel=${rebuild_kernel}"
           mkdir -p "${target_common}" "${target_bootfs}"
 
           # Files under boot/ must land on the FAT boot partition for U-Boot.
@@ -251,12 +248,16 @@ jobs:
           # Preseed the exact kernel bundle locally so ophub ./rebuild does not
           # fetch a stale mutable release asset behind our back. Require the
           # immutable asset names published by compile-kernel.yml.
-          rm -rf "${kernel_cache_dir}"
           mkdir -p "rebuild/build-armbian/kernel/${{ inputs.kernel_usage }}"
           release_api="https://api.github.com/repos/${{ inputs.kernel_repo }}/releases/tags/kernel_${{ inputs.kernel_usage }}"
-          kernel_pattern="${{ inputs.armbian_kernel }}"
-          kernel_pattern="${kernel_pattern//./\\.}"
-          immutable_regex="^${kernel_pattern}-${{ inputs.kernel_sign }}-g[0-9a-f]{8}-r[0-9]+\\.tar\\.gz$"
+          requested_kernel="${{ inputs.armbian_kernel }}"
+          if printf '%s' "${requested_kernel}" | grep -Eq '^[0-9]+\.[0-9]+\.y$'; then
+            kernel_prefix="${requested_kernel%.y}"
+            immutable_regex="^${kernel_prefix//./\\.}\\.[0-9]+-${{ inputs.kernel_sign }}-g[0-9a-f]{8}-r[0-9]+\\.tar\\.gz$"
+          else
+            kernel_pattern="${requested_kernel//./\\.}"
+            immutable_regex="^${kernel_pattern}-${{ inputs.kernel_sign }}-g[0-9a-f]{8}-r[0-9]+\\.tar\\.gz$"
+          fi
           asset_meta="$(
             curl -fsSL --retry 5 --retry-delay 5 \
               -H "Accept: application/vnd.github+json" \
@@ -274,7 +275,12 @@ jobs:
           if [ -n "${asset_meta}" ]; then
             kernel_asset_name="$(printf '%s' "${asset_meta}" | cut -f1)"
             kernel_asset_url="$(printf '%s' "${asset_meta}" | cut -f2)"
+            rebuild_kernel="$(printf '%s' "${kernel_asset_name}" | sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+)-.*/\1/')"
+            test -n "${rebuild_kernel}"
+            kernel_cache_dir="rebuild/build-armbian/kernel/${{ inputs.kernel_usage }}/${rebuild_kernel}"
+            rm -rf "${kernel_cache_dir}"
             echo "Prefetching immutable kernel bundle: ${kernel_asset_name}"
+            echo "Using resolved exact prefetched kernel=${rebuild_kernel}"
             curl -fL --retry 5 --retry-delay 5 \
               -H "Accept: application/octet-stream" \
               -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
@@ -296,7 +302,7 @@ jobs:
                 | .[]
                 | "  " + .name + "  updated_at=" + .updated_at
               '
-            echo "Run the kernel workflow first for the matching series, for example kernel_version=6.12.y kernel_auto=true kernel_sign=-${{ inputs.kernel_sign }}, then rerun this image workflow."
+            echo "Run the kernel workflow first for the matching series, for example kernel_version=6.12.y kernel_auto=true kernel_sign=-${{ inputs.kernel_sign }}, then rerun this image workflow with armbian_kernel=6.12.y or the exact version shown in kernel_stable."
             exit 1
           fi
           tar -xzf "${kernel_cache_dir}.tar.gz" -C "rebuild/build-armbian/kernel/${{ inputs.kernel_usage }}"
