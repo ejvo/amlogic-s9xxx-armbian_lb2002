@@ -321,13 +321,22 @@ jobs:
             exit 1
           fi
 
-          dtb_name="$(tar -tf /tmp/boot-nested.tar.gz | grep -E '(^|/|\.\/)dtb/amlogic/meson-g12a-s905l3a-e900v22c\.dtb$' | head -n 1)"
-          if [ -z "${dtb_name}" ]; then
-            echo "Could not locate meson-g12a-s905l3a-e900v22c.dtb inside nested ${boot_member}"
-            tar -tf /tmp/boot-nested.tar.gz | grep -E 'dtb/amlogic/.*s905l3a.*\.dtb' || true
+          dtb_member="$(tar -tf "${main_tar}" | grep -E '(^|/|\.\/)dtb-[^/]*\.tar\.gz$' | head -n 1)"
+          if [ -z "${dtb_member}" ]; then
+            echo "Could not locate dtb-*.tar.gz inside ${main_tar}"
+            tar -tf "${main_tar}" | sed -n '1,160p'
             exit 1
           fi
-          tar -xOf /tmp/boot-nested.tar.gz "${dtb_name}" > /tmp/cm311-e900v22c.dtb
+          tar -xOf "${main_tar}" "${dtb_member}" > /tmp/dtb-nested.tar.gz
+
+          dtb_name="$(tar -tf /tmp/dtb-nested.tar.gz | grep -E '(^|/|\.\/)(dtb/)?amlogic/meson-g12a-s905l3a-e900v22c\.dtb$' | head -n 1)"
+          if [ -z "${dtb_name}" ]; then
+            echo "Could not locate meson-g12a-s905l3a-e900v22c.dtb inside nested ${dtb_member}"
+            echo "Available s905l3a DTBs:"
+            tar -tf /tmp/dtb-nested.tar.gz | grep -E '(^|/)(dtb/)?amlogic/.*s905l3a.*\.dtb$' || true
+            exit 1
+          fi
+          tar -xOf /tmp/dtb-nested.tar.gz "${dtb_name}" > /tmp/cm311-e900v22c.dtb
           test -s /tmp/cm311-e900v22c.dtb
           if command -v dtc >/dev/null 2>&1; then
             dtc -I dtb -O dts -o /tmp/cm311-e900v22c.dts /tmp/cm311-e900v22c.dtb >/tmp/cm311-dtc.log 2>&1 || {
@@ -356,7 +365,7 @@ jobs:
             tar -tf /tmp/modules-nested.tar.gz | grep -E 'rtc-ds1307\.ko'
           fi
 
-          rm -f /tmp/boot-nested.tar.gz /tmp/modules-nested.tar.gz /tmp/kernel-config-check /tmp/cm311-e900v22c.dtb /tmp/cm311-e900v22c.dts
+          rm -f /tmp/boot-nested.tar.gz /tmp/dtb-nested.tar.gz /tmp/modules-nested.tar.gz /tmp/kernel-config-check /tmp/cm311-e900v22c.dtb /tmp/cm311-e900v22c.dts
 
       - name: Verify selected kernel profile completed
         id: verify_kernel_profile
