@@ -333,7 +333,7 @@ jobs:
           while IFS= read -r candidate_dtb_member; do
             test -n "${candidate_dtb_member}"
             tar -xOf "${main_tar}" "${candidate_dtb_member}" > /tmp/dtb-nested.tar.gz
-            candidate_dtb_name="$(tar -tf /tmp/dtb-nested.tar.gz | grep -E '(^|/|\.\/)(dtb/)?amlogic/meson-g12a-s905l3a-e900v22c\.dtb$' | head -n 1 || true)"
+            candidate_dtb_name="$(tar -tf /tmp/dtb-nested.tar.gz | grep -E '(^|/|\.\/)((dtb/)?amlogic/)?meson-g12a-s905l3a-e900v22c\.dtb$' | head -n 1 || true)"
             if [ -n "${candidate_dtb_name}" ]; then
               dtb_member="${candidate_dtb_member}"
               dtb_name="${candidate_dtb_name}"
@@ -348,7 +348,7 @@ jobs:
               test -n "${candidate_dtb_member}"
               echo "  ${candidate_dtb_member}:"
               tar -xOf "${main_tar}" "${candidate_dtb_member}" > /tmp/dtb-nested.tar.gz
-              tar -tf /tmp/dtb-nested.tar.gz | grep -E '(^|/)(dtb/)?amlogic/.*s905l3a.*\.dtb$' || true
+              tar -tf /tmp/dtb-nested.tar.gz | grep -E '(^|/)((dtb/)?amlogic/)?[^/]*s905l3a[^/]*\.dtb$' || true
             done <<< "${dtb_members}"
             exit 1
           fi
