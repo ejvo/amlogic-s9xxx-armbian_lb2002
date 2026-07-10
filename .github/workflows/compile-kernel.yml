@@ -321,21 +321,38 @@ jobs:
             exit 1
           fi
 
-          dtb_member="$(tar -tf "${main_tar}" | grep -E '(^|/|\.\/)dtb-[^/]*\.tar\.gz$' | head -n 1)"
-          if [ -z "${dtb_member}" ]; then
+          dtb_members="$(tar -tf "${main_tar}" | grep -E '(^|/|\.\/)dtb-[^/]*\.tar\.gz$' | sort || true)"
+          if [ -z "${dtb_members}" ]; then
             echo "Could not locate dtb-*.tar.gz inside ${main_tar}"
             tar -tf "${main_tar}" | sed -n '1,160p'
             exit 1
           fi
-          tar -xOf "${main_tar}" "${dtb_member}" > /tmp/dtb-nested.tar.gz
 
-          dtb_name="$(tar -tf /tmp/dtb-nested.tar.gz | grep -E '(^|/|\.\/)(dtb/)?amlogic/meson-g12a-s905l3a-e900v22c\.dtb$' | head -n 1)"
+          dtb_member=""
+          dtb_name=""
+          while IFS= read -r candidate_dtb_member; do
+            test -n "${candidate_dtb_member}"
+            tar -xOf "${main_tar}" "${candidate_dtb_member}" > /tmp/dtb-nested.tar.gz
+            candidate_dtb_name="$(tar -tf /tmp/dtb-nested.tar.gz | grep -E '(^|/|\.\/)(dtb/)?amlogic/meson-g12a-s905l3a-e900v22c\.dtb$' | head -n 1 || true)"
+            if [ -n "${candidate_dtb_name}" ]; then
+              dtb_member="${candidate_dtb_member}"
+              dtb_name="${candidate_dtb_name}"
+              break
+            fi
+          done <<< "${dtb_members}"
+
           if [ -z "${dtb_name}" ]; then
-            echo "Could not locate meson-g12a-s905l3a-e900v22c.dtb inside nested ${dtb_member}"
+            echo "Could not locate meson-g12a-s905l3a-e900v22c.dtb inside any dtb-*.tar.gz nested in ${main_tar}"
             echo "Available s905l3a DTBs:"
-            tar -tf /tmp/dtb-nested.tar.gz | grep -E '(^|/)(dtb/)?amlogic/.*s905l3a.*\.dtb$' || true
+            while IFS= read -r candidate_dtb_member; do
+              test -n "${candidate_dtb_member}"
+              echo "  ${candidate_dtb_member}:"
+              tar -xOf "${main_tar}" "${candidate_dtb_member}" > /tmp/dtb-nested.tar.gz
+              tar -tf /tmp/dtb-nested.tar.gz | grep -E '(^|/)(dtb/)?amlogic/.*s905l3a.*\.dtb$' || true
+            done <<< "${dtb_members}"
             exit 1
           fi
+          echo "Using DTB ${dtb_name} from ${dtb_member}"
           tar -xOf /tmp/dtb-nested.tar.gz "${dtb_name}" > /tmp/cm311-e900v22c.dtb
           test -s /tmp/cm311-e900v22c.dtb
           if command -v dtc >/dev/null 2>&1; then
