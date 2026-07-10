@@ -1,0 +1,55 @@
+diff --git a/arch/arm64/boot/dts/amlogic/meson-g12a-s905l3a-e900v22c.dts b/arch/arm64/boot/dts/amlogic/meson-g12a-s905l3a-e900v22c.dts
+index d942f2cd6..52b17e7c4 100644
+--- a/arch/arm64/boot/dts/amlogic/meson-g12a-s905l3a-e900v22c.dts
++++ b/arch/arm64/boot/dts/amlogic/meson-g12a-s905l3a-e900v22c.dts
+@@ -47,6 +47,7 @@
+ 			led_name = "net_led";
+                         gpios = <&gpio_ao GPIOAO_9 GPIO_ACTIVE_LOW>;
+ 			default-state = "off";
++			status = "disabled";
+ 			linux,default-trigger = "0.0:00:link";
+ 		};
+ 
+@@ -157,3 +157,42 @@ &ethmac {
+ 	phy-mode = "rmii";
+ 	status = "okay";
+ };
++
++/* CM311-1A HMI physical profile:
++ * UART_EE_B GPIOX_6/GPIOX_7, UART_AO_B GPIOAO_8/GPIOAO_9,
++ * I2C_EE_M0 on GPIOC_5/GPIOC_6 for DS3231, PWM_C on GPIOC_4.
++ */
++&sd_emmc_a {
++	status = "disabled";
++};
++
++&uart_B {
++	status = "okay";
++	pinctrl-0 = <&uart_b_pins>;
++	pinctrl-names = "default";
++};
++
++&uart_AO_B {
++	status = "okay";
++	pinctrl-0 = <&uart_ao_b_8_9_pins>;
++	pinctrl-names = "default";
++};
++
++&i2c3 {
++	status = "okay";
++	pinctrl-0 = <&i2c0_sda_c_pins>, <&i2c0_sck_c_pins>;
++	pinctrl-names = "default";
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	ds3231: rtc@68 {
++		compatible = "maxim,ds3231";
++		reg = <0x68>;
++	};
++};
++
++&pwm_cd {
++	status = "okay";
++	pinctrl-0 = <&pwm_c_c_pins>;
++	pinctrl-names = "default";
++};

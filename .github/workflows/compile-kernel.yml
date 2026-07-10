@@ -84,6 +84,7 @@ on:
         type: choice
         options:
           - -lb2002can
+          - -cm311hmi
           - -ophub
 
 env:
@@ -165,6 +166,35 @@ jobs:
           restore-keys: |
             kernel-${{ inputs.kernel_toolchain }}-${{ inputs.kernel_version }}-
 
+      - name: Resolve kernel profile
+        id: kernel_profile
+        run: |
+          set -e
+          case "${{ inputs.kernel_sign }}" in
+            -lb2002can)
+              profile="lb2002"
+              kernel_config="kernel/config_lb2002"
+              kernel_patch="kernel/patch_lb2002_experiment_k"
+              ;;
+            -cm311hmi)
+              profile="cm311"
+              kernel_config="kernel/config_cm311"
+              kernel_patch="kernel/patch_cm311_hmi"
+              ;;
+            *)
+              profile="generic"
+              kernel_config="kernel/config_lb2002"
+              kernel_patch="kernel/patch_lb2002_experiment_k"
+              ;;
+          esac
+
+          test -d "${kernel_config}"
+          test -d "${kernel_patch}"
+          echo "profile=${profile}" >> "${GITHUB_OUTPUT}"
+          echo "kernel_config=${kernel_config}" >> "${GITHUB_OUTPUT}"
+          echo "kernel_patch=${kernel_patch}" >> "${GITHUB_OUTPUT}"
+          echo "Using kernel profile=${profile} config=${kernel_config} patch=${kernel_patch}"
+
       - name: Compile the kernel [ ${{ inputs.kernel_version }} ]
         id: compile_kernel
         uses: ophub/amlogic-s9xxx-armbian@main
@@ -179,8 +209,8 @@ jobs:
           kernel_package: ${{ inputs.kernel_package }}
           kernel_sign: ${{ inputs.kernel_sign }}
           kernel_toolchain: ${{ inputs.kernel_toolchain }}
-          kernel_config: kernel/config_lb2002
-          kernel_patch: kernel/patch_lb2002_experiment_k
+          kernel_config: ${{ steps.kernel_profile.outputs.kernel_config }}
+          kernel_patch: ${{ steps.kernel_profile.outputs.kernel_patch }}
           auto_patch: true
           config_flavor: ""
           ccache_clear: ${{ inputs.ccache_clear }}
@@ -203,7 +233,7 @@ jobs:
           test "$(find /builder/compile-kernel/output -type f | wc -l)" -gt 0
 
       - name: Verify CAN config in packaged kernel
-        if: ${{ always() }}
+        if: ${{ always() && steps.kernel_profile.outputs.profile == 'lb2002' }}
         run: |
           set -e
           outdir="/builder/compile-kernel/output"
@@ -232,7 +262,7 @@ jobs:
 
       - name: Verify lb2002 experiment marker in packaged kernel
         id: verify_lb2002_marker
-        if: ${{ always() }}
+        if: ${{ always() && steps.kernel_profile.outputs.profile == 'lb2002' }}
         run: |
           set -e
           outdir="/builder/compile-kernel/output"
@@ -253,8 +283,106 @@ jobs:
           grep -a 'lb2002-expk' /tmp/kernel-vmlinuz-check
           rm -f /tmp/kernel-vmlinuz-check /tmp/boot-nested.tar.gz
 
+      - name: Verify CM311 HMI config and DTB in packaged kernel
+        id: verify_cm311_profile
+        if: ${{ always() && steps.kernel_profile.outputs.profile == 'cm311' }}
+        run: |
+          set -e
+          outdir="/builder/compile-kernel/output"
+          main_tar="$(find "${outdir}" -maxdepth 1 -type f -name '*.tar.gz' ! -name 'deb-*' | head -n 1)"
+          test -n "${main_tar}"
+
+          boot_member="$(tar -tf "${main_tar}" | grep -E '(^|/|\.\/)boot-[0-9]+\.[0-9]+\.[0-9]+.*\.tar\.gz$' | head -n 1)"
+          if [ -z "${boot_member}" ]; then
+            echo "Could not locate boot-*.tar.gz inside ${main_tar}"
+            tar -tf "${main_tar}" | sed -n '1,120p'
+            exit 1
+          fi
+          tar -xOf "${main_tar}" "${boot_member}" > /tmp/boot-nested.tar.gz
+
+          config_name="$(tar -tf /tmp/boot-nested.tar.gz | grep -E '(^|/|\.\/)config-[0-9]+\.[0-9]+\.[0-9]+' | head -n 1)"
+          if [ -z "${config_name}" ]; then
+            echo "Could not locate config-* inside nested ${boot_member}"
+            tar -tf /tmp/boot-nested.tar.gz | sed -n '1,120p'
+            exit 1
+          fi
+          tar -xOf /tmp/boot-nested.tar.gz "${config_name}" > /tmp/kernel-config-check
+          test -s /tmp/kernel-config-check
+          grep -E '^CONFIG_RTC_DRV_DS1307=(m|y)$' /tmp/kernel-config-check
+          grep -E '^CONFIG_SERIAL_MESON=y$' /tmp/kernel-config-check
+          grep -E '^CONFIG_I2C_CHARDEV=y$' /tmp/kernel-config-check
+          grep -E '^CONFIG_I2C_MESON=y$' /tmp/kernel-config-check
+          grep -E '^CONFIG_PWM_MESON=y$' /tmp/kernel-config-check
+
+          kernel_name="$(tar -tf /tmp/boot-nested.tar.gz | grep -E '(^|/|\.\/)vmlinuz-.*cm311hmi$' | head -n 1)"
+          if [ -z "${kernel_name}" ]; then
+            echo "Could not locate vmlinuz-*cm311hmi inside nested ${boot_member}"
+            tar -tf /tmp/boot-nested.tar.gz | sed -n '1,160p'
+            exit 1
+          fi
+
+          dtb_name="$(tar -tf /tmp/boot-nested.tar.gz | grep -E '(^|/|\.\/)dtb/amlogic/meson-g12a-s905l3a-e900v22c\.dtb$' | head -n 1)"
+          if [ -z "${dtb_name}" ]; then
+            echo "Could not locate meson-g12a-s905l3a-e900v22c.dtb inside nested ${boot_member}"
+            tar -tf /tmp/boot-nested.tar.gz | grep -E 'dtb/amlogic/.*s905l3a.*\.dtb' || true
+            exit 1
+          fi
+          tar -xOf /tmp/boot-nested.tar.gz "${dtb_name}" > /tmp/cm311-e900v22c.dtb
+          test -s /tmp/cm311-e900v22c.dtb
+          if command -v dtc >/dev/null 2>&1; then
+            dtc -I dtb -O dts -o /tmp/cm311-e900v22c.dts /tmp/cm311-e900v22c.dtb >/tmp/cm311-dtc.log 2>&1 || {
+              cat /tmp/cm311-dtc.log
+              exit 1
+            }
+            grep -E 'maxim,ds3231|ds3231' /tmp/cm311-e900v22c.dts
+            grep -E 'uart_b|uart-b' /tmp/cm311-e900v22c.dts
+            grep -E 'uart_ao_b|uart-ao-b' /tmp/cm311-e900v22c.dts
+            grep -E 'pwm_c|pwm-c' /tmp/cm311-e900v22c.dts
+          else
+            strings /tmp/cm311-e900v22c.dtb | grep -E 'maxim,ds3231|ds3231'
+            strings /tmp/cm311-e900v22c.dtb | grep -E 'uart_b|uart-b'
+            strings /tmp/cm311-e900v22c.dtb | grep -E 'uart_ao_b|uart-ao-b'
+            strings /tmp/cm311-e900v22c.dtb | grep -E 'pwm_c|pwm-c'
+          fi
+
+          if grep -q '^CONFIG_RTC_DRV_DS1307=m$' /tmp/kernel-config-check; then
+            modules_member="$(tar -tf "${main_tar}" | grep -E '(^|/|\.\/)modules-[0-9]+\.[0-9]+\.[0-9]+.*\.tar\.gz$' | head -n 1)"
+            if [ -z "${modules_member}" ]; then
+              echo "Could not locate modules-*.tar.gz inside ${main_tar}"
+              tar -tf "${main_tar}" | sed -n '1,120p'
+              exit 1
+            fi
+            tar -xOf "${main_tar}" "${modules_member}" > /tmp/modules-nested.tar.gz
+            tar -tf /tmp/modules-nested.tar.gz | grep -E 'rtc-ds1307\.ko'
+          fi
+
+          rm -f /tmp/boot-nested.tar.gz /tmp/modules-nested.tar.gz /tmp/kernel-config-check /tmp/cm311-e900v22c.dtb /tmp/cm311-e900v22c.dts
+
+      - name: Verify selected kernel profile completed
+        id: verify_kernel_profile
+        if: ${{ always() }}
+        run: |
+          set -e
+          case "${{ steps.kernel_profile.outputs.profile }}" in
+            lb2002)
+              test "${{ steps.verify_lb2002_marker.outcome }}" = "success"
+              ;;
+            cm311)
+              test "${{ steps.verify_cm311_profile.outcome }}" = "success"
+              ;;
+            generic)
+              test -d /builder/compile-kernel/output
+              test "$(find /builder/compile-kernel/output -type f | wc -l)" -gt 0
+              ;;
+            *)
+              echo "error: unsupported kernel profile: ${{ steps.kernel_profile.outputs.profile }}"
+              exit 1
+              ;;
+          esac
+          echo "status=success" >> "${GITHUB_OUTPUT}"
+
       - name: Create exact-version kernel release aliases
-        if: ${{ steps.verify_lb2002_marker.outcome == 'success' && !cancelled() }}
+        if: ${{ steps.verify_kernel_profile.outputs.status == 'success' && !cancelled() }}
         run: |
           set -e
           outdir="/builder/compile-kernel/output"
@@ -302,6 +430,13 @@ jobs:
           exact_main_asset="${exact_version}-${immutable_suffix}.tar.gz"
           exact_deb_asset="deb-${exact_version}-${immutable_suffix}.tar.gz"
 
+          cm311_overlays_json='[]'
+          cm311_dtb=''
+          if [ "${{ steps.kernel_profile.outputs.profile }}" = "cm311" ]; then
+            cm311_overlays_json='["UART_EE_B","UART_AO_B","I2C_EE_M0_DS3231","PWM_C"]'
+            cm311_dtb='meson-g12a-s905l3a-e900v22c.dtb'
+          fi
+
           sudo cp -af "${main_tar}" "${outdir}/${requested_main_asset}"
           sudo cp -af "${deb_tar}" "${outdir}/${requested_deb_asset}"
           sudo cp -af "${outdir}/${exact_version}.tar.gz" "${outdir}/${exact_main_asset}"
@@ -312,6 +447,11 @@ jobs:
             "requested_kernel": "${{ inputs.kernel_version }}",
             "exact_kernel_version": "${exact_version}",
             "kernel_sign": "${sign_tag}",
+            "kernel_profile": "${{ steps.kernel_profile.outputs.profile }}",
+            "kernel_config": "${{ steps.kernel_profile.outputs.kernel_config }}",
+            "kernel_patch": "${{ steps.kernel_profile.outputs.kernel_patch }}",
+            "cm311_overlays": ${cm311_overlays_json},
+            "cm311_dtb": "${cm311_dtb}",
             "git_sha": "${GITHUB_SHA}",
             "run_id": "${GITHUB_RUN_ID}",
             "assets": {
@@ -322,6 +462,11 @@ jobs:
             }
           }
           EOF
+          sudo install -m 0644 "${workdir}/kernel-release-manifest.json" "${workdir}/packed/${exact_version}/manifest.json"
+          (
+            cd "${workdir}/packed"
+            sudo tar -czf "${outdir}/${exact_main_asset}" "${exact_version}"
+          )
           sudo install -m 0644 "${workdir}/kernel-release-manifest.json" "${outdir}/kernel-release-manifest.json"
 
           echo "EXACT_KERNEL_VERSION=${exact_version}" >> ${GITHUB_ENV}
@@ -337,7 +482,7 @@ jobs:
 
       - name: Upload final kernel artifacts
         uses: actions/upload-artifact@v4
-        if: ${{ steps.verify_lb2002_marker.outcome == 'success' && !cancelled() }}
+        if: ${{ steps.verify_kernel_profile.outputs.status == 'success' && !cancelled() }}
         with:
           name: kernel-output-${{ inputs.kernel_version }}${{ inputs.kernel_sign }}
           path: /builder/compile-kernel/output/**
@@ -345,7 +490,7 @@ jobs:
 
       - name: Upload Kernel to Release
         uses: ncipollo/release-action@main
-        if: ${{ steps.verify_lb2002_marker.outcome == 'success' && !cancelled() }}
+        if: ${{ steps.verify_kernel_profile.outputs.status == 'success' && !cancelled() }}
         with:
           tag: kernel_stable
           artifacts: /builder/compile-kernel/output/*
