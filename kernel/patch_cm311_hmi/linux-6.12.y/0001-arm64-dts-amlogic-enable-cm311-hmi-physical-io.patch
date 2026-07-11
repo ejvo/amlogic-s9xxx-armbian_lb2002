@@ -16,7 +16,7 @@ index d942f2cd6..52b17e7c4 100644
  };
 +
 +/* CM311-1A HMI physical profile:
-+ * UART_EE_B GPIOX_6/GPIOX_7, UART_AO_B GPIOAO_8/GPIOAO_9,
++ * UART_A GPIOX_12/GPIOX_13, UART_AO_B GPIOAO_8/GPIOAO_9,
 + * I2C_EE_M0 on GPIOC_5/GPIOC_6 for DS3231, PWM_C on GPIOC_4.
 + */
 +&sd_emmc_a {
@@ -24,8 +24,12 @@ index d942f2cd6..52b17e7c4 100644
 +};
 +
 +&uart_B {
++	status = "disabled";
++};
++
++&uart_A {
 +	status = "okay";
-+	pinctrl-0 = <&uart_b_pins>;
++	pinctrl-0 = <&uart_a_pins>;
 +	pinctrl-names = "default";
 +};
 +
