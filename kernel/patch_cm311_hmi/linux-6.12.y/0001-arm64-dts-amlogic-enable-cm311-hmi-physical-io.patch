@@ -10,7 +10,7 @@ index d942f2cd6..52b17e7c4 100644
  			linux,default-trigger = "0.0:00:link";
  		};
  
-@@ -157,3 +157,42 @@ &ethmac {
+@@ -157,3 +157,46 @@ &ethmac {
  	phy-mode = "rmii";
  	status = "okay";
  };
