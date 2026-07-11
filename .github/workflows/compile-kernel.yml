@@ -424,14 +424,15 @@ jobs:
           tar -xzf "${main_tar}" -C "${workdir}/main"
           tar -xzf "${deb_tar}" -C "${workdir}/deb"
 
-          main_root="${workdir}/main"
-          deb_root="${workdir}/deb"
-          if [ -d "${workdir}/main/6.12.y" ]; then
-            main_root="${workdir}/main/6.12.y"
+          main_root="$(find "${workdir}/main" -mindepth 1 -maxdepth 1 -type d | sort | head -n 1)"
+          deb_root="$(find "${workdir}/deb" -mindepth 1 -maxdepth 1 -type d | sort | head -n 1)"
+          if [ -z "${main_root}" ]; then
+            main_root="${workdir}/main"
           fi
-          if [ -d "${workdir}/deb/6.12.y" ]; then
-            deb_root="${workdir}/deb/6.12.y"
+          if [ -z "${deb_root}" ]; then
+            deb_root="${workdir}/deb"
           fi
+          echo "Using extracted kernel roots: main=${main_root} deb=${deb_root}"
 
           boot_member="$(find "${main_root}" -maxdepth 1 -type f -name 'boot-*.tar.gz' | head -n 1)"
           test -n "${boot_member}"
@@ -442,12 +443,6 @@ jobs:
           mkdir -p "${workdir}/packed/${exact_version}" "${workdir}/packed/deb-${exact_version}"
           cp -af "${main_root}/." "${workdir}/packed/${exact_version}/"
           cp -af "${deb_root}/." "${workdir}/packed/deb-${exact_version}/"
-
-          (
-            cd "${workdir}/packed"
-            sudo tar -czf "${outdir}/${exact_version}.tar.gz" "${exact_version}"
-            sudo tar -czf "${outdir}/deb-${exact_version}.tar.gz" "deb-${exact_version}"
-          )
 
           sign_tag="$(printf '%s' "${{ inputs.kernel_sign }}" | sed -E 's#^-##; s#[^A-Za-z0-9._-]#-#g')"
           immutable_suffix="${sign_tag}-g${GITHUB_SHA::8}-r${GITHUB_RUN_ID}"
@@ -462,11 +457,6 @@ jobs:
             cm311_overlays_json='["UART_EE_B","UART_AO_B","I2C_EE_M0_DS3231","PWM_C"]'
             cm311_dtb='meson-g12a-s905l3a-e900v22c.dtb'
           fi
-
-          sudo cp -af "${main_tar}" "${outdir}/${requested_main_asset}"
-          sudo cp -af "${deb_tar}" "${outdir}/${requested_deb_asset}"
-          sudo cp -af "${outdir}/${exact_version}.tar.gz" "${outdir}/${exact_main_asset}"
-          sudo cp -af "${outdir}/deb-${exact_version}.tar.gz" "${outdir}/${exact_deb_asset}"
 
           cat > "${workdir}/kernel-release-manifest.json" <<EOF
           {
@@ -491,7 +481,10 @@ jobs:
           sudo install -m 0644 "${workdir}/kernel-release-manifest.json" "${workdir}/packed/${exact_version}/manifest.json"
           (
             cd "${workdir}/packed"
+            sudo tar -czf "${outdir}/${requested_main_asset}" "${exact_version}"
             sudo tar -czf "${outdir}/${exact_main_asset}" "${exact_version}"
+            sudo tar -czf "${outdir}/${requested_deb_asset}" "deb-${exact_version}"
+            sudo tar -czf "${outdir}/${exact_deb_asset}" "deb-${exact_version}"
           )
           sudo install -m 0644 "${workdir}/kernel-release-manifest.json" "${outdir}/kernel-release-manifest.json"
 
