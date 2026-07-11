@@ -28,11 +28,12 @@ on:
         default: "6.12.94"
         type: choice
         options:
+          - 6.12.y
+          - 6.12.95
           - 6.12.94
           - 6.12.93
           - 6.12.91
           - 6.12.85
-          - 6.12.y
           - 6.18.y
           - 6.12.y_6.18.y
       kernel_repo:
@@ -50,6 +51,7 @@ on:
         type: choice
         options:
           - lb2002can
+          - cm311hmi
           - ophub
       kernel_usage:
         description: "Set the tags of the stable kernel."
@@ -77,6 +79,7 @@ on:
           - ophub
           - angel
           - lb2002
+          - cm311
       armbian_files:
         description: "Set the path of custom Armbian files."
         required: false
@@ -312,16 +315,33 @@ jobs:
 
           kernel_boot="$(find "${kernel_cache_dir}" -maxdepth 1 -type f -name 'boot-*.tar.gz' | head -n 1)"
           test -n "${kernel_boot}"
-          kernel_member="$(tar -tf "${kernel_boot}" | grep -E '(^|/|\.\/)vmlinuz-.*lb2002can$' | head -n 1)"
-          test -n "${kernel_member}"
-          tmp_kernel="/tmp/lb2002-kernel-check.bin"
-          rm -f "${tmp_kernel}"
-          tar -xOf "${kernel_boot}" "${kernel_member}" > "${tmp_kernel}"
-          test -s "${tmp_kernel}"
-          if ! strings "${tmp_kernel}" | grep -q 'lb2002-expk'; then
-            echo "error: prefetched kernel bundle lacks lb2002-expk markers for requested kernel=${{ inputs.armbian_kernel }} sign=${{ inputs.kernel_sign }}"
-            exit 1
-          fi
+          case "${{ inputs.kernel_sign }}" in
+            lb2002can)
+              kernel_member="$(tar -tf "${kernel_boot}" | grep -E '(^|/|\.\/)vmlinuz-.*lb2002can$' | head -n 1)"
+              test -n "${kernel_member}"
+              tmp_kernel="/tmp/lb2002-kernel-check.bin"
+              rm -f "${tmp_kernel}"
+              tar -xOf "${kernel_boot}" "${kernel_member}" > "${tmp_kernel}"
+              test -s "${tmp_kernel}"
+              if ! strings "${tmp_kernel}" | grep -q 'lb2002-expk'; then
+                echo "error: prefetched kernel bundle lacks lb2002-expk markers for requested kernel=${{ inputs.armbian_kernel }} sign=${{ inputs.kernel_sign }}"
+                exit 1
+              fi
+              ;;
+            cm311hmi)
+              kernel_member="$(tar -tf "${kernel_boot}" | grep -E '(^|/|\.\/)vmlinuz-.*cm311hmi$' | head -n 1)"
+              test -n "${kernel_member}"
+              test -f "${kernel_cache_dir}/manifest.json"
+              jq -e '.kernel_profile == "cm311" and .kernel_sign == "cm311hmi" and .cm311_dtb == "meson-g12a-s905l3a-e900v22c.dtb"' "${kernel_cache_dir}/manifest.json"
+              cm311_dtb_archive="$(find "${kernel_cache_dir}" -maxdepth 1 -type f -name 'dtb-amlogic-*.tar.gz' | head -n 1)"
+              test -n "${cm311_dtb_archive}"
+              tar -tf "${cm311_dtb_archive}" | grep -E '(^|/|\.\/)((dtb/)?amlogic/)?meson-g12a-s905l3a-e900v22c\.dtb$'
+              ;;
+            *)
+              kernel_member="$(tar -tf "${kernel_boot}" | grep -E '(^|/|\.\/)vmlinuz-' | head -n 1)"
+              test -n "${kernel_member}"
+              ;;
+          esac
 
           # Any non-boot overlay content remains common rootfs content.
           while IFS= read -r item; do
@@ -369,6 +389,6 @@ jobs:
         uses: actions/upload-artifact@v4
         if: ${{ steps.stage_artifacts.outcome == 'success' && !cancelled() }}
         with:
-          name: armbian-lb2002-image-${{ inputs.armbian_board }}-${{ inputs.armbian_kernel }}
+          name: armbian-${{ inputs.builder_name }}-image-${{ inputs.armbian_board }}-${{ inputs.armbian_kernel }}-${{ inputs.kernel_sign }}
           path: ${{ env.FINAL_ARTIFACT_PATH }}/*
           if-no-files-found: error
