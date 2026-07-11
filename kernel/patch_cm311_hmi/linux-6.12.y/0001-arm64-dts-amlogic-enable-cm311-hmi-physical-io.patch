@@ -1,20 +1,8 @@
 diff --git a/arch/arm64/boot/dts/amlogic/meson-g12a-s905l3a-e900v22c.dts b/arch/arm64/boot/dts/amlogic/meson-g12a-s905l3a-e900v22c.dts
-index d942f2cd6..52b17e7c4 100644
+index d942f2cd6..f46382d08 100644
 --- a/arch/arm64/boot/dts/amlogic/meson-g12a-s905l3a-e900v22c.dts
 +++ b/arch/arm64/boot/dts/amlogic/meson-g12a-s905l3a-e900v22c.dts
-@@ -42,2 +42,3 @@
--			gpios = <&gpio_ao GPIOAO_11 GPIO_ACTIVE_LOW>;
--			default-state = "on";
-+			/* CM311 HMI: GPIOAO_11 / GPIO608 is the red status LED. */
-+			gpios = <&gpio_ao GPIOAO_11 GPIO_ACTIVE_HIGH>;
-+			default-state = "off";
-@@ -49,0 +50 @@
-+			status = "disabled";
-@@ -55 +57,2 @@
--			gpios = <&gpio_ao GPIOAO_10 GPIO_ACTIVE_LOW>;
-+			/* CM311 HMI: GPIOAO_10 / GPIO607 is the green status LED. */
-+			gpios = <&gpio_ao GPIOAO_10 GPIO_ACTIVE_HIGH>;
-@@ -157,3 +157,63 @@ &ethmac {
+@@ -157,3 +157,80 @@ &ethmac {
  	phy-mode = "rmii";
  	status = "okay";
  };
@@ -24,6 +12,23 @@ index d942f2cd6..52b17e7c4 100644
 + * I2C_EE_M0 on GPIOC_5/GPIOC_6 for DS3231,
 + * EE PWM candidates on GPIOX_3/GPIOX_5/GPIOX_6.
 + */
++&{/leds/power_led} {
++	/* CM311 HMI: GPIOAO_11 / GPIO608 is the red status LED. */
++	gpios = <&gpio_ao GPIOAO_11 GPIO_ACTIVE_HIGH>;
++	default-state = "off";
++};
++
++&{/leds/net_led} {
++	status = "disabled";
++};
++
++&{/leds/remote_led} {
++	/* CM311 HMI: GPIOAO_10 / GPIO607 is the green status LED. */
++	gpios = <&gpio_ao GPIOAO_10 GPIO_ACTIVE_HIGH>;
++	default-state = "off";
++	/delete-property/ linux,default-trigger;
++};
++
 +&sd_emmc_a {
 +	status = "disabled";
 +};
@@ -69,7 +74,7 @@ index d942f2cd6..52b17e7c4 100644
 +	pinctrl-names = "default";
 +};
 +
-+&spdifout {
++&spdifout_a {
 +	/*
 +	 * Keep the SPDIFOUT_A component available for the U200 sound card, but
 +	 * do not route its external pin to GPIOAO_10. GPIOAO_10 is the CM311 HMI
