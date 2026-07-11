@@ -1,0 +1,13 @@
+[Unit]
+Description=CM311 HMI system status LEDs
+After=multi-user.target
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/cm311-status-leds.conf
+ExecStart=/usr/local/sbin/cm311-status-leds.sh
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

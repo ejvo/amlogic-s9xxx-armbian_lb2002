@@ -2,22 +2,27 @@ diff --git a/arch/arm64/boot/dts/amlogic/meson-g12a-s905l3a-e900v22c.dts b/arch/
 index d942f2cd6..52b17e7c4 100644
 --- a/arch/arm64/boot/dts/amlogic/meson-g12a-s905l3a-e900v22c.dts
 +++ b/arch/arm64/boot/dts/amlogic/meson-g12a-s905l3a-e900v22c.dts
-@@ -47,6 +47,7 @@
- 			led_name = "net_led";
-                         gpios = <&gpio_ao GPIOAO_9 GPIO_ACTIVE_LOW>;
- 			default-state = "off";
+@@ -42,2 +42,3 @@
+-			gpios = <&gpio_ao GPIOAO_11 GPIO_ACTIVE_LOW>;
+-			default-state = "on";
++			/* CM311 HMI: GPIOAO_11 / GPIO608 is the red status LED. */
++			gpios = <&gpio_ao GPIOAO_11 GPIO_ACTIVE_HIGH>;
++			default-state = "off";
+@@ -49,0 +50 @@
 +			status = "disabled";
- 			linux,default-trigger = "0.0:00:link";
- 		};
- 
-@@ -157,3 +157,46 @@ &ethmac {
+@@ -55 +57,2 @@
+-			gpios = <&gpio_ao GPIOAO_10 GPIO_ACTIVE_LOW>;
++			/* CM311 HMI: GPIOAO_10 / GPIO607 is the green status LED. */
++			gpios = <&gpio_ao GPIOAO_10 GPIO_ACTIVE_HIGH>;
+@@ -157,3 +157,63 @@ &ethmac {
  	phy-mode = "rmii";
  	status = "okay";
  };
 +
 +/* CM311-1A HMI physical profile:
 + * UART_A GPIOX_12/GPIOX_13, UART_AO_B GPIOAO_8/GPIOAO_9,
-+ * I2C_EE_M0 on GPIOC_5/GPIOC_6 for DS3231, PWM_C on GPIOC_4.
++ * I2C_EE_M0 on GPIOC_5/GPIOC_6 for DS3231,
++ * EE PWM candidates on GPIOX_3/GPIOX_5/GPIOX_6.
 + */
 +&sd_emmc_a {
 +	status = "disabled";
@@ -54,6 +59,22 @@ index d942f2cd6..52b17e7c4 100644
 +
 +&pwm_cd {
 +	status = "okay";
-+	pinctrl-0 = <&pwm_c_c_pins>;
++	pinctrl-0 = <&pwm_c_x5_pins>, <&pwm_d_x3_pins>;
 +	pinctrl-names = "default";
++};
++
++&pwm_ab {
++	status = "okay";
++	pinctrl-0 = <&pwm_a_pins>;
++	pinctrl-names = "default";
++};
++
++&spdifout {
++	/*
++	 * Keep the SPDIFOUT_A component available for the U200 sound card, but
++	 * do not route its external pin to GPIOAO_10. GPIOAO_10 is the CM311 HMI
++	 * green status LED.
++	 */
++	/delete-property/ pinctrl-0;
++	/delete-property/ pinctrl-names;
 +};
