@@ -39,7 +39,7 @@ index d942f2cd6..52b17e7c4 100644
 +	pinctrl-names = "default";
 +};
 +
-+&i2c3 {
++&i2c0 {
 +	status = "okay";
 +	pinctrl-0 = <&i2c0_sda_c_pins>, <&i2c0_sck_c_pins>;
 +	pinctrl-names = "default";
