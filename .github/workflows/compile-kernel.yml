@@ -313,6 +313,7 @@ jobs:
           grep -E '^CONFIG_I2C_CHARDEV=y$' /tmp/kernel-config-check
           grep -E '^CONFIG_I2C_MESON=y$' /tmp/kernel-config-check
           grep -E '^CONFIG_PWM_MESON=y$' /tmp/kernel-config-check
+          grep -E '^CONFIG_DRM_LOAD_EDID_FIRMWARE=y$' /tmp/kernel-config-check
 
           kernel_name="$(tar -tf /tmp/boot-nested.tar.gz | grep -E '(^|/|\.\/)vmlinuz-.*cm311hmi$' | head -n 1)"
           if [ -z "${kernel_name}" ]; then
