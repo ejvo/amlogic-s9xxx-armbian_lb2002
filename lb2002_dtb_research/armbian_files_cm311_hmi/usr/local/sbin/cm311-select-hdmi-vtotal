@@ -2,7 +2,10 @@
 set -euo pipefail
 
 mode="${1:-}"
-case "${mode}" in
+case "$mode" in
+    752|756|760)
+        edid="cm311_1280x720_v723_728_${mode}_nhsync_nvsync.bin"
+        ;;
     final)
         edid="cm311_1280x720_v723_728_756_nhsync_nvsync.bin"
         ;;
@@ -13,7 +16,7 @@ case "${mode}" in
         edid="cm311_1280x720_left_1344_1472_1624_723_728_748.bin"
         ;;
     *)
-        echo "usage: $0 final|previous|rollback" >&2
+        echo "usage: $0 752|756|760|final|previous|rollback" >&2
         exit 2
         ;;
 esac
@@ -23,7 +26,32 @@ if [ ! -f "/usr/lib/firmware/edid/${edid}" ] && [ ! -f "/lib/firmware/edid/${edi
     exit 1
 fi
 
-cp -a /boot/uEnv.txt "/boot/uEnv.txt.bak-edid-${mode}-$(date +%Y%m%d-%H%M%S)"
+mkdir -p /lib/firmware/edid
+if [ -f "/usr/lib/firmware/edid/${edid}" ]; then
+    cp -f "/usr/lib/firmware/edid/${edid}" "/lib/firmware/edid/${edid}" 2>/dev/null || true
+fi
+
+cp -a /etc/initramfs-tools/hooks/cm311-edid \
+    "/etc/initramfs-tools/hooks/cm311-edid.bak-vtotal-${mode}-$(date +%Y%m%d-%H%M%S)" \
+    2>/dev/null || true
+
+cat > /etc/initramfs-tools/hooks/cm311-edid <<EOF
+#!/bin/sh
+set -e
+case "\$1" in
+    prereqs)
+        exit 0
+        ;;
+esac
+. /usr/share/initramfs-tools/hook-functions
+copy_file firmware /usr/lib/firmware/edid/${edid}
+copy_file firmware /usr/lib/firmware/edid/cm311_1280x720_left60_1344_1472_1624_723_728_748.bin
+copy_file firmware /usr/lib/firmware/edid/cm311_1280x720_left_1344_1472_1624_723_728_748.bin
+EOF
+chmod 755 /etc/initramfs-tools/hooks/cm311-edid
+update-initramfs -u || true
+
+cp -a /boot/uEnv.txt "/boot/uEnv.txt.bak-vtotal-${mode}-$(date +%Y%m%d-%H%M%S)"
 
 python3 - "$edid" <<'PY'
 from pathlib import Path
@@ -45,5 +73,5 @@ p.write_text(s)
 PY
 
 grep -n APPEND /boot/uEnv.txt
-echo "selected ${mode} EDID: ${edid}"
+echo "selected ${mode}: ${edid}"
 echo "reboot required"

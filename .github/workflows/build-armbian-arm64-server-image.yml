@@ -104,6 +104,9 @@ jobs:
           custom_root="${{ github.workspace }}/${{ inputs.armbian_files }}"
           test -d "${custom_root}"
           test -f "${custom_root}/boot/uEnv.txt"
+          cm311_final_edid="cm311_1280x720_v723_728_756_nhsync_nvsync.bin"
+          grep -q "${cm311_final_edid}" "${custom_root}/boot/uEnv.txt"
+          test -f "${custom_root}/usr/lib/firmware/edid/${cm311_final_edid}"
           fdt_rel="$(sed -n 's/^FDT=//p' "${custom_root}/boot/uEnv.txt" | head -n1 | sed 's#^/##')"
           test -n "${fdt_rel}"
           fdt_path="${custom_root}/boot/${fdt_rel}"
@@ -350,6 +353,7 @@ jobs:
 
           chmod 755 "${target_common}/usr/local/sbin/cm311-set-hdmi-bpc8" 2>/dev/null || true
           chmod 755 "${target_common}/usr/local/sbin/cm311-select-hdmi-edid" 2>/dev/null || true
+          chmod 755 "${target_common}/usr/local/sbin/cm311-select-hdmi-vtotal" 2>/dev/null || true
           chmod 755 "${target_common}/etc/initramfs-tools/hooks/cm311-edid" 2>/dev/null || true
 
           cd rebuild
