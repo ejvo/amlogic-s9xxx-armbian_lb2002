@@ -80,7 +80,7 @@ on:
       kernel_sign:
         description: "Set the kernel custom signature"
         required: false
-        default: "-lb2002can"
+        default: "-cm311hmi"
         type: choice
         options:
           - -lb2002can

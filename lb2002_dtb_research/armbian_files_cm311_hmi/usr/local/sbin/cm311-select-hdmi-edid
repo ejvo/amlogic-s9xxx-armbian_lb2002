@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+mode="${1:-}"
+case "${mode}" in
+    final)
+        edid="cm311_1280x720_left60_1344_1472_1624_723_728_748.bin"
+        ;;
+    rollback)
+        edid="cm311_1280x720_left_1344_1472_1624_723_728_748.bin"
+        ;;
+    *)
+        echo "usage: $0 final|rollback" >&2
+        exit 2
+        ;;
+esac
+
+if [ ! -f "/usr/lib/firmware/edid/${edid}" ] && [ ! -f "/lib/firmware/edid/${edid}" ]; then
+    echo "missing EDID firmware: ${edid}" >&2
+    exit 1
+fi
+
+cp -a /boot/uEnv.txt "/boot/uEnv.txt.bak-edid-${mode}-$(date +%Y%m%d-%H%M%S)"
+
+python3 - "$edid" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+edid = sys.argv[1]
+p = Path("/boot/uEnv.txt")
+s = p.read_text()
+s = re.sub(r"video=HDMI-A-1:[^ ]+", "video=HDMI-A-1:1280x720@60D", s)
+s = re.sub(r"video=HDMI-1:[^ ]+", "video=HDMI-1:1280x720@60D", s)
+if "video=HDMI-A-1:" not in s:
+    s = s.rstrip() + " video=HDMI-A-1:1280x720@60D"
+if "video=HDMI-1:" not in s:
+    s = s.rstrip() + " video=HDMI-1:1280x720@60D"
+s = re.sub(r" ?drm\.edid_firmware=[^ ]+", "", s)
+s = s.rstrip() + f" drm.edid_firmware=HDMI-A-1:edid/{edid}\n"
+p.write_text(s)
+PY
+
+grep -n APPEND /boot/uEnv.txt
+echo "selected ${mode} EDID: ${edid}"
+echo "reboot required"

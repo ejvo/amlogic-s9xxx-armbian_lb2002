@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+connector_id="${1:-35}"
+
+if ! command -v modetest >/dev/null 2>&1; then
+    echo "modetest not found; skip HDMI max bpc"
+    exit 0
+fi
+
+modetest -M meson -w "${connector_id}:max bpc:8" || true

@@ -25,7 +25,7 @@ on:
       armbian_kernel:
         description: "Select kernel version."
         required: false
-        default: "6.12.94"
+        default: "6.12.95"
         type: choice
         options:
           - 6.12.y
@@ -47,7 +47,7 @@ on:
       kernel_sign:
         description: "Expected immutable kernel asset signature."
         required: false
-        default: "lb2002can"
+        default: "cm311hmi"
         type: choice
         options:
           - lb2002can
@@ -73,7 +73,7 @@ on:
       builder_name:
         description: "Set Armbian builder signature."
         required: false
-        default: "lb2002"
+        default: "cm311"
         type: choice
         options:
           - ophub
@@ -83,7 +83,7 @@ on:
       armbian_files:
         description: "Set the path of custom Armbian files."
         required: false
-        default: "lb2002_dtb_research/armbian_files_lb2002_v2"
+        default: "lb2002_dtb_research/armbian_files_cm311_hmi"
 
 env:
   TZ: Etc/UTC
@@ -347,6 +347,10 @@ jobs:
           while IFS= read -r item; do
             cp -avf --no-preserve=ownership "${item}" "${target_common}/"
           done < <(find "${custom_files}" -mindepth 1 -maxdepth 1 ! -name boot)
+
+          chmod 755 "${target_common}/usr/local/sbin/cm311-set-hdmi-bpc8" 2>/dev/null || true
+          chmod 755 "${target_common}/usr/local/sbin/cm311-select-hdmi-edid" 2>/dev/null || true
+          chmod 755 "${target_common}/etc/initramfs-tools/hooks/cm311-edid" 2>/dev/null || true
 
           cd rebuild
           sudo ./rebuild \
