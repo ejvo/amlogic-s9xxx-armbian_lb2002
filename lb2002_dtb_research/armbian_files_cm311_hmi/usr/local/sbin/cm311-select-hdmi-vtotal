@@ -34,6 +34,7 @@ fi
 cp -a /etc/initramfs-tools/hooks/cm311-edid \
     "/etc/initramfs-tools/hooks/cm311-edid.bak-vtotal-${mode}-$(date +%Y%m%d-%H%M%S)" \
     2>/dev/null || true
+chmod a-x /etc/initramfs-tools/hooks/cm311-edid.bak-vtotal-* 2>/dev/null || true
 
 cat > /etc/initramfs-tools/hooks/cm311-edid <<EOF
 #!/bin/sh
@@ -44,12 +45,21 @@ case "\$1" in
         ;;
 esac
 . /usr/share/initramfs-tools/hook-functions
-copy_file firmware /usr/lib/firmware/edid/${edid}
-copy_file firmware /usr/lib/firmware/edid/cm311_1280x720_left60_1344_1472_1624_723_728_748.bin
-copy_file firmware /usr/lib/firmware/edid/cm311_1280x720_left_1344_1472_1624_723_728_748.bin
+copy_file firmware /lib/firmware/edid/${edid}
+copy_file firmware /lib/firmware/edid/cm311_1280x720_left60_1344_1472_1624_723_728_748.bin
+copy_file firmware /lib/firmware/edid/cm311_1280x720_left_1344_1472_1624_723_728_748.bin
 EOF
 chmod 755 /etc/initramfs-tools/hooks/cm311-edid
-update-initramfs -u || true
+if [ -f "/boot/initrd.img-$(uname -r)" ] && command -v mkinitramfs >/dev/null 2>&1; then
+    tmp="/boot/initrd.img-$(uname -r).new-cm311-edid"
+    mkinitramfs -o "$tmp" "$(uname -r)"
+    cp -a "$tmp" "/boot/initrd.img-$(uname -r)"
+    if command -v mkimage >/dev/null 2>&1; then
+        mkimage -A arm64 -O linux -T ramdisk -C gzip -n uInitrd -d "/boot/initrd.img-$(uname -r)" /boot/uInitrd
+    fi
+else
+    update-initramfs -u || true
+fi
 
 cp -a /boot/uEnv.txt "/boot/uEnv.txt.bak-vtotal-${mode}-$(date +%Y%m%d-%H%M%S)"
 
@@ -61,12 +71,12 @@ import sys
 edid = sys.argv[1]
 p = Path("/boot/uEnv.txt")
 s = p.read_text()
-s = re.sub(r"video=HDMI-A-1:[^ ]+", "video=HDMI-A-1:1280x720@60D", s)
-s = re.sub(r"video=HDMI-1:[^ ]+", "video=HDMI-1:1280x720@60D", s)
+s = re.sub(r"video=HDMI-A-1:[^ ]+", "video=HDMI-A-1:D", s)
+s = re.sub(r"video=HDMI-1:[^ ]+", "video=HDMI-1:D", s)
 if "video=HDMI-A-1:" not in s:
-    s = s.rstrip() + " video=HDMI-A-1:1280x720@60D"
+    s = s.rstrip() + " video=HDMI-A-1:D"
 if "video=HDMI-1:" not in s:
-    s = s.rstrip() + " video=HDMI-1:1280x720@60D"
+    s = s.rstrip() + " video=HDMI-1:D"
 s = re.sub(r" ?drm\.edid_firmware=[^ ]+", "", s)
 s = s.rstrip() + f" drm.edid_firmware=HDMI-A-1:edid/{edid}\n"
 p.write_text(s)

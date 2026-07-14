@@ -1,4 +1,4 @@
 LINUX=/zImage
 INITRD=/uInitrd
 FDT=/dtb/amlogic/meson-g12a-s905l3a-e900v22c.dtb
-APPEND=root=LABEL=ROOTFS rw rootwait rootdelay=80 rootfstype=ext4 console=ttyAML0,115200n8 earlycon=aml-uart,0xff803000,115200 ignore_loglevel loglevel=8 drm_kms_helper.drm_fbdev_overalloc=100 video=HDMI-A-1:1280x720@60D video=HDMI-1:1280x720@60D drm.edid_firmware=HDMI-A-1:edid/cm311_1280x720_v723_728_756_nhsync_nvsync.bin
+APPEND=root=LABEL=ROOTFS rw rootwait rootdelay=80 rootfstype=ext4 console=ttyAML0,115200n8 earlycon=aml-uart,0xff803000,115200 ignore_loglevel loglevel=8 drm_kms_helper.drm_fbdev_overalloc=100 video=HDMI-A-1:D video=HDMI-1:D drm.edid_firmware=HDMI-A-1:edid/cm311_1280x720_v723_728_756_nhsync_nvsync.bin

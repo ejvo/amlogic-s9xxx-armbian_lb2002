@@ -33,12 +33,12 @@ import sys
 edid = sys.argv[1]
 p = Path("/boot/uEnv.txt")
 s = p.read_text()
-s = re.sub(r"video=HDMI-A-1:[^ ]+", "video=HDMI-A-1:1280x720@60D", s)
-s = re.sub(r"video=HDMI-1:[^ ]+", "video=HDMI-1:1280x720@60D", s)
+s = re.sub(r"video=HDMI-A-1:[^ ]+", "video=HDMI-A-1:D", s)
+s = re.sub(r"video=HDMI-1:[^ ]+", "video=HDMI-1:D", s)
 if "video=HDMI-A-1:" not in s:
-    s = s.rstrip() + " video=HDMI-A-1:1280x720@60D"
+    s = s.rstrip() + " video=HDMI-A-1:D"
 if "video=HDMI-1:" not in s:
-    s = s.rstrip() + " video=HDMI-1:1280x720@60D"
+    s = s.rstrip() + " video=HDMI-1:D"
 s = re.sub(r" ?drm\.edid_firmware=[^ ]+", "", s)
 s = s.rstrip() + f" drm.edid_firmware=HDMI-A-1:edid/{edid}\n"
 p.write_text(s)

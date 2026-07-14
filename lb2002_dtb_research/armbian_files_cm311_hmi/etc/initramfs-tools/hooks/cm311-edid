@@ -9,6 +9,6 @@ esac
 
 . /usr/share/initramfs-tools/hook-functions
 
-copy_file firmware /usr/lib/firmware/edid/cm311_1280x720_left60_1344_1472_1624_723_728_748.bin
-copy_file firmware /usr/lib/firmware/edid/cm311_1280x720_left_1344_1472_1624_723_728_748.bin
-copy_file firmware /usr/lib/firmware/edid/cm311_1280x720_v723_728_756_nhsync_nvsync.bin
+copy_file firmware /lib/firmware/edid/cm311_1280x720_left60_1344_1472_1624_723_728_748.bin
+copy_file firmware /lib/firmware/edid/cm311_1280x720_left_1344_1472_1624_723_728_748.bin
+copy_file firmware /lib/firmware/edid/cm311_1280x720_v723_728_756_nhsync_nvsync.bin
