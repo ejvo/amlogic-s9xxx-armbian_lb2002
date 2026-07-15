@@ -314,6 +314,10 @@ jobs:
           grep -E '^CONFIG_I2C_MESON=y$' /tmp/kernel-config-check
           grep -E '^CONFIG_PWM_MESON=y$' /tmp/kernel-config-check
           grep -E '^CONFIG_DRM_LOAD_EDID_FIRMWARE=y$' /tmp/kernel-config-check
+          grep -E '^CONFIG_PSTORE=y$' /tmp/kernel-config-check
+          grep -E '^CONFIG_PSTORE_RAM=y$' /tmp/kernel-config-check
+          grep -E '^CONFIG_PSTORE_CONSOLE=y$' /tmp/kernel-config-check
+          grep -E '^CONFIG_PSTORE_PMSG=y$' /tmp/kernel-config-check
 
           kernel_name="$(tar -tf /tmp/boot-nested.tar.gz | grep -E '(^|/|\.\/)vmlinuz-.*cm311hmi$' | head -n 1)"
           if [ -z "${kernel_name}" ]; then
@@ -365,11 +369,15 @@ jobs:
             grep -E 'uart_b|uart-b' /tmp/cm311-e900v22c.dts
             grep -E 'uart_ao_b|uart-ao-b' /tmp/cm311-e900v22c.dts
             grep -E 'pwm_c|pwm-c' /tmp/cm311-e900v22c.dts
+            grep -E 'compatible = "ramoops"' /tmp/cm311-e900v22c.dts
+            grep -E 'record-size = <0x[0-9a-f]+ 0x00040000>|record-size = <0x00040000>' /tmp/cm311-e900v22c.dts
+            grep -E 'console-size = <0x[0-9a-f]+ 0x00040000>|console-size = <0x00040000>' /tmp/cm311-e900v22c.dts
           else
             strings /tmp/cm311-e900v22c.dtb | grep -E 'maxim,ds3231|ds3231'
             strings /tmp/cm311-e900v22c.dtb | grep -E 'uart_b|uart-b'
             strings /tmp/cm311-e900v22c.dtb | grep -E 'uart_ao_b|uart-ao-b'
             strings /tmp/cm311-e900v22c.dtb | grep -E 'pwm_c|pwm-c'
+            strings /tmp/cm311-e900v22c.dtb | grep -E 'ramoops'
           fi
 
           if grep -q '^CONFIG_RTC_DRV_DS1307=m$' /tmp/kernel-config-check; then

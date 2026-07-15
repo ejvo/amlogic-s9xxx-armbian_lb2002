@@ -2,7 +2,7 @@ diff --git a/arch/arm64/boot/dts/amlogic/meson-g12a-s905l3a-e900v22c.dts b/arch/
 index d942f2cd6..f46382d08 100644
 --- a/arch/arm64/boot/dts/amlogic/meson-g12a-s905l3a-e900v22c.dts
 +++ b/arch/arm64/boot/dts/amlogic/meson-g12a-s905l3a-e900v22c.dts
-@@ -157,3 +157,80 @@ &ethmac {
+@@ -157,3 +157,91 @@ &ethmac {
  	phy-mode = "rmii";
  	status = "okay";
  };
@@ -12,6 +12,18 @@ index d942f2cd6..f46382d08 100644
 + * I2C_EE_M0 on GPIOC_5/GPIOC_6 for DS3231,
 + * EE PWM candidates on GPIOX_3/GPIOX_5/GPIOX_6.
 + */
++&{/reserved-memory} {
++	ramoops: ramoops@0 {
++		compatible = "ramoops";
++		size = <0x0 0x00200000>;
++		alignment = <0x0 0x00001000>;
++		record-size = <0x00040000>;
++		console-size = <0x00040000>;
++		pmsg-size = <0x00020000>;
++		ecc-size = <16>;
++	};
++};
++
 +&{/leds/power_led} {
 +	/* CM311 HMI: GPIOAO_11 / GPIO608 is the red status LED. */
 +	gpios = <&gpio_ao GPIOAO_11 GPIO_ACTIVE_HIGH>;

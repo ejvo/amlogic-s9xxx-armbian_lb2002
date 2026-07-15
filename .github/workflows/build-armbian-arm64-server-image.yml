@@ -14,7 +14,7 @@ on:
       base_image_url:
         description: "Direct URL to base Armbian .img.gz"
         required: false
-        default: "https://github.com/ophub/amlogic-s9xxx-armbian/releases/download/Armbian_bookworm_arm64_server_2026.06/Armbian_26.05.0_amlogic_s905l3a_bookworm_6.12.91_server_2026.06.01.img.gz"
+        default: "https://github.com/ophub/amlogic-s9xxx-armbian/releases/download/Armbian_resolute_arm64_server_2026.07/Armbian_26.08.0_amlogic_s905l3a_resolute_6.12.94_server_2026.07.01.img.gz"
       armbian_board:
         description: "Select device board."
         required: false
@@ -25,7 +25,7 @@ on:
       armbian_kernel:
         description: "Select kernel version."
         required: false
-        default: "6.12.95"
+        default: "6.12.94"
         type: choice
         options:
           - 6.12.y
@@ -84,6 +84,11 @@ on:
         description: "Set the path of custom Armbian files."
         required: false
         default: "lb2002_dtb_research/armbian_files_cm311_hmi"
+      include_hmi_offline_deps:
+        description: "Embed CM311 HMI Debian packages and Python wheels for offline clean installs."
+        required: false
+        default: true
+        type: boolean
 
 env:
   TZ: Etc/UTC
@@ -134,8 +139,85 @@ jobs:
         run: |
           set -e
           sudo -E apt-get -y update
-          sudo -E apt-get -y install curl wget xz-utils pigz p7zip-full device-tree-compiler jq binutils
+          sudo -E apt-get -y install curl wget xz-utils pigz p7zip-full device-tree-compiler jq binutils python3-pip ca-certificates
           echo "status=success" >> ${GITHUB_OUTPUT}
+
+      - name: Build CM311 HMI offline dependency bundle
+        id: hmi_offline_deps
+        if: ${{ inputs.include_hmi_offline_deps && steps.init.outputs.status == 'success' && !cancelled() }}
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+          custom_root="${{ github.workspace }}/${{ inputs.armbian_files }}"
+          bundle="${custom_root}/opt/azs_host/cm311-offline-dependencies"
+          rm -rf "${bundle}"
+          mkdir -p "${bundle}/wheels" "${bundle}/debs/partial"
+
+          python3 -m pip download \
+            --disable-pip-version-check \
+            --dest "${bundle}/wheels" \
+            --only-binary=:all: \
+            --platform manylinux_2_31_aarch64 \
+            --implementation cp \
+            --python-version 311 \
+            --abi abi3 \
+            PySide6_Essentials==6.6.3 \
+            shiboken6==6.6.3
+
+          python3 -m pip download \
+            --disable-pip-version-check \
+            --dest "${bundle}/wheels" \
+            --only-binary=:all: \
+            pyserial==3.5
+
+          sudo dpkg --add-architecture arm64
+          cat <<'EOF' | sudo tee /etc/apt/sources.list.d/azs-resolute-arm64.sources >/dev/null
+          Types: deb
+          URIs: http://ports.ubuntu.com/ubuntu-ports
+          Suites: resolute resolute-updates resolute-security
+          Components: main universe
+          Architectures: arm64
+          Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+          EOF
+          sudo -E apt-get -y update
+          sudo -E apt-get -y --download-only \
+            -o Dir::Cache::archives="${bundle}/debs" \
+            install \
+            libdouble-conversion3:arm64 \
+            libegl1:arm64 \
+            libgl1:arm64 \
+            libgbm1:arm64 \
+            libglx0:arm64 \
+            libx11-xcb1:arm64 \
+            libxkbcommon0:arm64 \
+            libfontconfig1:arm64 \
+            libfreetype6:arm64 \
+            libglib2.0-0:arm64 \
+            libdbus-1-3:arm64 \
+            libxcb1:arm64 \
+            libxext6:arm64 \
+            libxrender1:arm64 \
+            libxi6:arm64 \
+            libsm6:arm64 \
+            libice6:arm64 \
+            python3-yaml:arm64
+
+          rm -rf "${bundle}/debs/partial" "${bundle}/debs/lock"
+          {
+            echo "# CM311 HMI offline dependencies"
+            echo
+            echo "Base image: s905l3a_resolute_6.12.94"
+            echo "Generated: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo
+            echo "## wheels"
+            find "${bundle}/wheels" -maxdepth 1 -type f -name '*.whl' -printf '%f\n' | sort
+            echo
+            echo "## debs"
+            find "${bundle}/debs" -maxdepth 1 -type f -name '*.deb' -printf '%f\n' | sort
+          } > "${bundle}/MANIFEST.md"
+          test "$(find "${bundle}/wheels" -maxdepth 1 -type f -name '*.whl' | wc -l)" -ge 3
+          test "$(find "${bundle}/debs" -maxdepth 1 -type f -name '*.deb' | wc -l)" -gt 0
 
       - name: Create virtual disk for extended storage
         id: disk
@@ -184,13 +266,15 @@ jobs:
           # ophub ./rebuild only discovers source images matching *-trunk_*.img.
           # Preserve release and kernel version when we can, but always provide
           # a compatible fallback for newer upstream filename layouts.
-          compat_img="$(printf '%s\n' "${base_img}" | sed -E 's#^Armbian_([^_]+)_(.*)_([0-9]+\.[0-9]+\.[0-9]+)(_[^./]+)*\.img$#Armbian-unofficial_\1-trunk_\2_\3.img#')"
+          compat_img="$(printf '%s\n' "${base_img}" | sed -E 's#^Armbian_([^_]+)_(.*_(bookworm|trixie|resolute|noble))_([0-9]+\.[0-9]+\.[0-9]+)(_.*)?\.img$#Armbian-unofficial_\1-trunk_\2_\4.img#')"
           if [ "${compat_img}" = "${base_img}" ]; then
             release_ver="$(printf '%s\n' "${base_img}" | sed -nE 's#^Armbian_([^_]+)_.+#\1#p')"
-            kernel_ver="$(printf '%s\n' "${base_img}" | sed -nE 's#^.*_([0-9]+\.[0-9]+\.[0-9]+)(_[^./]+)*\.img$#\1#p')"
+            distro_ver="$(printf '%s\n' "${base_img}" | sed -nE 's#^Armbian_[^_]+_.*_(bookworm|trixie|resolute|noble)_([0-9]+\.[0-9]+\.[0-9]+).*$#\1#p')"
+            kernel_ver="$(printf '%s\n' "${base_img}" | sed -nE 's#^Armbian_[^_]+_.*_(bookworm|trixie|resolute|noble)_([0-9]+\.[0-9]+\.[0-9]+).*$#\2#p')"
             test -n "${release_ver}"
             test -n "${kernel_ver}"
-            compat_img="Armbian-unofficial_${release_ver}-trunk_amlogic_${{ inputs.armbian_board }}_bookworm_${kernel_ver}.img"
+            test -n "${distro_ver}"
+            compat_img="Armbian-unofficial_${release_ver}-trunk_amlogic_${{ inputs.armbian_board }}_${distro_ver}_${kernel_ver}.img"
           fi
           mv -f "${base_img}" "${compat_img}"
           ls -lh
