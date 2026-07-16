@@ -372,6 +372,17 @@ jobs:
             grep -E 'compatible = "ramoops"' /tmp/cm311-e900v22c.dts
             grep -E 'record-size = <(0x0+ )?0x0*40000>;' /tmp/cm311-e900v22c.dts
             grep -E 'console-size = <(0x0+ )?0x0*40000>;' /tmp/cm311-e900v22c.dts
+            awk '
+              /audio-controller@480[[:space:]]*\{/ { in_spdifout=1; has_pinctrl=0; next }
+              in_spdifout && /pinctrl-0/ { has_pinctrl=1 }
+              in_spdifout && /^[[:space:]]*\};/ {
+                if (has_pinctrl) {
+                  print "error: CM311 SPDIFOUT still claims a pinctrl pin; GPIOAO_10 green LED must stay free."
+                  exit 1
+                }
+                in_spdifout=0
+              }
+            ' /tmp/cm311-e900v22c.dts
           else
             strings /tmp/cm311-e900v22c.dtb | grep -E 'maxim,ds3231|ds3231'
             strings /tmp/cm311-e900v22c.dtb | grep -E 'uart_b|uart-b'
