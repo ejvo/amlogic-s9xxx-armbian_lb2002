@@ -25,7 +25,7 @@ on:
       armbian_kernel:
         description: "Select kernel version."
         required: false
-        default: "6.12.94"
+        default: "6.12.95"
         type: choice
         options:
           - 6.12.y
@@ -172,6 +172,22 @@ jobs:
             pyserial==3.5
 
           sudo dpkg --add-architecture arm64
+          for source_file in /etc/apt/sources.list.d/*.sources; do
+            [ -f "${source_file}" ] || continue
+            if grep -Eq 'URIs: .*(archive|security)\.ubuntu\.com|URIs: .*ports\.ubuntu\.com' "${source_file}"; then
+              sudo awk '
+                BEGIN { RS=""; ORS="" }
+                {
+                  gsub(/\nArchitectures:[^\n]*/, "")
+                  print $0 "\nArchitectures: amd64\n\n"
+                }
+              ' "${source_file}" | sudo tee "${source_file}.tmp" >/dev/null
+              sudo mv "${source_file}.tmp" "${source_file}"
+            fi
+          done
+          if [ -f /etc/apt/sources.list ]; then
+            sudo sed -i -E 's#^deb ([^[][^ ]*ubuntu[^ ]*)#deb [arch=amd64] \1#' /etc/apt/sources.list
+          fi
           cat <<'EOF' | sudo tee /etc/apt/sources.list.d/azs-resolute-arm64.sources >/dev/null
           Types: deb
           URIs: http://ports.ubuntu.com/ubuntu-ports
