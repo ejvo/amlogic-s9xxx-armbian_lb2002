@@ -15,8 +15,8 @@ index d942f2cd6..f46382d08 100644
 +&{/reserved-memory} {
 +	ramoops: ramoops@0 {
 +		compatible = "ramoops";
-+		size = <0x0 0x00200000>;
-+		alignment = <0x0 0x00001000>;
++		reg = <0x0 0x7fe00000 0x0 0x00200000>;
++		no-map;
 +		record-size = <0x00040000>;
 +		console-size = <0x00040000>;
 +		pmsg-size = <0x00020000>;
@@ -42,6 +42,11 @@ index d942f2cd6..f46382d08 100644
 +};
 +
 +&sd_emmc_a {
++	status = "disabled";
++};
++
++&sd_emmc_b {
++	/* GPIOC_5/GPIOC_6 are used by the CM311 HMI DS3231 I2C bus. */
 +	status = "disabled";
 +};
 +

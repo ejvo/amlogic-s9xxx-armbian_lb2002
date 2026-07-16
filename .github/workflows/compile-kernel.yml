@@ -370,8 +370,20 @@ jobs:
             grep -E 'uart_ao_b|uart-ao-b' /tmp/cm311-e900v22c.dts
             grep -E 'pwm_c|pwm-c' /tmp/cm311-e900v22c.dts
             grep -E 'compatible = "ramoops"' /tmp/cm311-e900v22c.dts
+            grep -E 'reg = <(0x0+ )?0x0*7fe00000 (0x0+ )?0x0*200000>;' /tmp/cm311-e900v22c.dts
             grep -E 'record-size = <(0x0+ )?0x0*40000>;' /tmp/cm311-e900v22c.dts
             grep -E 'console-size = <(0x0+ )?0x0*40000>;' /tmp/cm311-e900v22c.dts
+            awk '
+              /mmc@ffe05000[[:space:]]*\{/ { in_sd=1; disabled=0; next }
+              in_sd && /status = "disabled"/ { disabled=1 }
+              in_sd && /^[[:space:]]*\};/ {
+                if (!disabled) {
+                  print "error: CM311 sd_emmc_b/mmc@ffe05000 is not disabled; GPIOC_5/GPIOC_6 must stay free for DS3231 I2C."
+                  exit 1
+                }
+                in_sd=0
+              }
+            ' /tmp/cm311-e900v22c.dts
             awk '
               /audio-controller@480[[:space:]]*\{/ { in_spdifout=1; has_pinctrl=0; next }
               in_spdifout && /pinctrl-0/ { has_pinctrl=1 }
