@@ -91,7 +91,7 @@ index d942f2cd6..f46382d08 100644
 +	pinctrl-names = "default";
 +};
 +
-+&spdifout {
++&{/soc/bus@ff600000/bus@42000/audio-controller@480} {
 +	/*
 +	 * Keep the SPDIFOUT component available for the U200 sound card, but
 +	 * do not claim an external SPDIF pin. GPIOAO_10 is the CM311 HMI green
