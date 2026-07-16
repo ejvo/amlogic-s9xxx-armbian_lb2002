@@ -370,8 +370,8 @@ jobs:
             grep -E 'uart_ao_b|uart-ao-b' /tmp/cm311-e900v22c.dts
             grep -E 'pwm_c|pwm-c' /tmp/cm311-e900v22c.dts
             grep -E 'compatible = "ramoops"' /tmp/cm311-e900v22c.dts
-            grep -E 'record-size = <0x[0-9a-f]+ 0x00040000>|record-size = <0x00040000>' /tmp/cm311-e900v22c.dts
-            grep -E 'console-size = <0x[0-9a-f]+ 0x00040000>|console-size = <0x00040000>' /tmp/cm311-e900v22c.dts
+            grep -E 'record-size = <(0x0+ )?0x0*40000>;' /tmp/cm311-e900v22c.dts
+            grep -E 'console-size = <(0x0+ )?0x0*40000>;' /tmp/cm311-e900v22c.dts
           else
             strings /tmp/cm311-e900v22c.dtb | grep -E 'maxim,ds3231|ds3231'
             strings /tmp/cm311-e900v22c.dtb | grep -E 'uart_b|uart-b'
