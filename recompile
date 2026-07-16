@@ -132,6 +132,7 @@ launch_docker_container() {
         echo -e "${INFO} Pulling the Docker image: [ ${docker_image} ]..."
         docker run -d --privileged \
             --name ${docker_container} \
+            --network host \
             -v ${compile_path}:/opt/kernel/compile-kernel \
             -v ${ccache_path}:/root/.ccache \
             -v /etc/localtime:/etc/localtime:ro \
@@ -160,7 +161,21 @@ configure_and_compile() {
     fi
 
     echo -e "${INFO} Syncing scripts in Docker container..."
-    docker exec -i "${docker_container}" bash "${docker_script}" -u
+    docker exec -i "${docker_container}" bash -c \
+        "sed -i 's#http://ports.ubuntu.com#https://ports.ubuntu.com#g' /etc/apt/sources.list /etc/apt/sources.list.d/*.sources 2>/dev/null || true"
+
+    dependency_ready="no"
+    for attempt in 1 2 3; do
+        echo -e "${INFO} Installing Docker build dependencies (attempt ${attempt}/3)..."
+        docker exec -i "${docker_container}" bash "${docker_script}" -u || true
+        if docker exec -i "${docker_container}" bash -c \
+            'command -v ccache >/dev/null && test -r /usr/include/libelf.h'; then
+            dependency_ready="yes"
+            break
+        fi
+        [[ "${attempt}" -lt 3 ]] && sleep $((attempt * 10))
+    done
+    [[ "${dependency_ready}" == "yes" ]] || error_msg "Docker build dependencies are incomplete after 3 attempts: ccache or libelf.h is missing."
 
     echo -e "${INFO} Injecting custom configs into Docker container..."
     [[ -d "${config_path}" ]] && docker cp ${config_path}/. "${docker_container}":/opt/kernel/compile-kernel/tools/config/

@@ -197,7 +197,7 @@ jobs:
 
       - name: Compile the kernel [ ${{ inputs.kernel_version }} ]
         id: compile_kernel
-        uses: ophub/amlogic-s9xxx-armbian@main
+        uses: ./
         continue-on-error: true
         if: ${{ steps.disk.outputs.status == 'success' && !cancelled() }}
         with:
