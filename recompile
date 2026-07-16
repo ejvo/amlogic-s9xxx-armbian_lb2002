@@ -138,8 +138,16 @@ launch_docker_container() {
             -v /etc/localtime:/etc/localtime:ro \
             -v /etc/timezone:/etc/timezone:ro \
             -e CCACHE_DIR=/root/.ccache \
+            --entrypoint /bin/bash \
             --restart=no \
-            ${docker_image}
+            ${docker_image} -lc 'sleep infinity'
+        sleep 2
+        if [[ -z "$(docker ps -q -f name=${docker_container})" ]]; then
+            echo -e "${ERROR} Docker container [ ${docker_container} ] exited during startup."
+            docker ps -a -f name=${docker_container} || true
+            docker logs ${docker_container} || true
+            error_msg "Docker container [ ${docker_container} ] is not running."
+        fi
         container_freshly_started="yes"
     fi
 }
