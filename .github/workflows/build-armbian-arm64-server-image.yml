@@ -139,7 +139,7 @@ jobs:
         run: |
           set -e
           sudo -E apt-get -y update
-          sudo -E apt-get -y install curl wget xz-utils pigz p7zip-full device-tree-compiler jq binutils python3-pip ca-certificates
+          sudo -E apt-get -y install curl wget xz-utils pigz p7zip-full device-tree-compiler jq binutils python3-pip ca-certificates cpio u-boot-tools
           echo "status=success" >> ${GITHUB_OUTPUT}
 
       - name: Build CM311 HMI offline dependency bundle
@@ -469,6 +469,99 @@ jobs:
 
           echo "PACKAGED_OUTPUTPATH=/builder/rebuild/build/output/images" >> ${GITHUB_ENV}
           echo "PACKAGED_STATUS=success" >> ${GITHUB_ENV}
+
+      - name: Embed CM311 EDID into rebuilt initramfs
+        id: cm311_initramfs
+        if: ${{ steps.rebuild.outcome == 'success' && inputs.kernel_sign == 'cm311hmi' && !cancelled() }}
+        run: |
+          set -euo pipefail
+          src="${PACKAGED_OUTPUTPATH}"
+          cm311_final_edid="cm311_1280x720_v723_728_756_nhsync_nvsync.bin"
+          mapfile -t artifacts < <(find "${src}" -maxdepth 1 -type f \( -name 'Armbian_*.img' -o -name 'Armbian_*.img.gz' \) ! -name 'Armbian-unofficial_*' | sort)
+          test "${#artifacts[@]}" -gt 0
+
+          patch_image() {
+            local artifact="$1"
+            local img_path="${artifact}"
+            local recompress="false"
+            if [[ "${artifact}" == *.img.gz ]]; then
+              gzip -df "${artifact}"
+              img_path="${artifact%.gz}"
+              recompress="true"
+            fi
+            test -f "${img_path}"
+
+            local work_dir boot_mnt root_mnt loopdev
+            work_dir="$(mktemp -d)"
+            boot_mnt="${work_dir}/boot"
+            root_mnt="${work_dir}/root"
+            mkdir -p "${boot_mnt}" "${root_mnt}"
+            loopdev=""
+
+            cleanup_mounts() {
+              set +e
+              mountpoint -q "${root_mnt}" && sudo umount "${root_mnt}"
+              mountpoint -q "${boot_mnt}" && sudo umount "${boot_mnt}"
+              if [ -n "${loopdev}" ]; then
+                sudo losetup -d "${loopdev}"
+              fi
+              rm -rf "${work_dir}"
+            }
+            trap cleanup_mounts RETURN
+
+            loopdev="$(sudo losetup -P -f --show "${img_path}")"
+            sudo partprobe "${loopdev}" || true
+            sudo mount "${loopdev}p1" "${boot_mnt}"
+            sudo mount "${loopdev}p2" "${root_mnt}"
+
+            local initrd_path kernel_name extract_dir new_initrd
+            initrd_path="$(find "${boot_mnt}" -maxdepth 1 -type f -name 'initrd.img-*cm311hmi' | sort -V | tail -n 1)"
+            test -n "${initrd_path}"
+            kernel_name="$(basename "${initrd_path}" | sed 's/^initrd.img-//')"
+            test -n "${kernel_name}"
+            gzip -t "${initrd_path}"
+
+            local edid_files=()
+            local edid_dir edid_file
+            for edid_dir in "${root_mnt}/usr/lib/firmware/edid" "${root_mnt}/lib/firmware/edid"; do
+              if [ -d "${edid_dir}" ]; then
+                for edid_file in "${edid_dir}"/cm311_1280x720*.bin; do
+                  [ -f "${edid_file}" ] && edid_files+=("${edid_file}")
+                done
+              fi
+            done
+            test "${#edid_files[@]}" -gt 0
+
+            extract_dir="${work_dir}/initrd"
+            mkdir -p "${extract_dir}"
+            gzip -dc "${initrd_path}" | (cd "${extract_dir}" && sudo cpio -id --quiet)
+            sudo mkdir -p "${extract_dir}/usr/lib/firmware/edid"
+            sudo cp -avf "${edid_files[@]}" "${extract_dir}/usr/lib/firmware/edid/"
+            test -f "${extract_dir}/usr/lib/firmware/edid/${cm311_final_edid}"
+
+            new_initrd="${work_dir}/initrd.img-${kernel_name}"
+            (cd "${extract_dir}" && sudo find . -print0 | sudo cpio --null -o -H newc --quiet | gzip -9 > "${new_initrd}")
+            gzip -t "${new_initrd}"
+            sudo install -m 0644 "${new_initrd}" "${initrd_path}"
+            gzip -dc "${initrd_path}" | cpio -t --quiet | grep -F "usr/lib/firmware/edid/${cm311_final_edid}"
+
+            sudo mkimage -A arm64 -O linux -T ramdisk -C gzip -n "uInitrd-${kernel_name}" -d "${initrd_path}" "${boot_mnt}/uInitrd-${kernel_name}.new"
+            sudo mv -f "${boot_mnt}/uInitrd-${kernel_name}.new" "${boot_mnt}/uInitrd-${kernel_name}"
+            sudo cp -f "${boot_mnt}/uInitrd-${kernel_name}" "${boot_mnt}/uInitrd"
+            sync
+
+            trap - RETURN
+            cleanup_mounts
+
+            if [ "${recompress}" = "true" ]; then
+              pigz -f "${img_path}"
+            fi
+          }
+
+          for artifact in "${artifacts[@]}"; do
+            echo "Embedding CM311 EDID into initramfs for ${artifact}"
+            patch_image "${artifact}"
+          done
 
       - name: Stage final rebuilt image only
         id: stage_artifacts
