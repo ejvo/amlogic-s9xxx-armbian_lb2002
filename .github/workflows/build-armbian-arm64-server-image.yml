@@ -139,7 +139,7 @@ jobs:
         run: |
           set -e
           sudo -E apt-get -y update
-          sudo -E apt-get -y install curl wget xz-utils pigz p7zip-full device-tree-compiler jq binutils python3-pip ca-certificates cpio u-boot-tools
+          sudo -E apt-get -y install curl wget xz-utils pigz p7zip-full device-tree-compiler jq binutils python3-pip ca-certificates cpio u-boot-tools file zstd lz4
           echo "status=success" >> ${GITHUB_OUTPUT}
 
       - name: Build CM311 HMI offline dependency bundle
@@ -514,12 +514,13 @@ jobs:
             sudo mount "${loopdev}p1" "${boot_mnt}"
             sudo mount "${loopdev}p2" "${root_mnt}"
 
-            local initrd_path kernel_name extract_dir new_initrd
+            local initrd_path kernel_name extract_dir new_initrd initrd_compression uboot_compression
             initrd_path="$(find "${boot_mnt}" -maxdepth 1 -type f -name 'initrd.img-*cm311hmi' | sort -V | tail -n 1)"
             test -n "${initrd_path}"
             kernel_name="$(basename "${initrd_path}" | sed 's/^initrd.img-//')"
             test -n "${kernel_name}"
-            gzip -t "${initrd_path}"
+            initrd_compression="$(detect_initrd_compression "${initrd_path}")"
+            uboot_compression="$(mkimage_compression "${initrd_compression}")"
 
             local edid_files=()
             local edid_dir edid_file
@@ -534,18 +535,18 @@ jobs:
 
             extract_dir="${work_dir}/initrd"
             mkdir -p "${extract_dir}"
-            gzip -dc "${initrd_path}" | (cd "${extract_dir}" && sudo cpio -id --quiet)
+            decompress_initrd "${initrd_compression}" "${initrd_path}" | (cd "${extract_dir}" && sudo cpio -id --quiet)
             sudo mkdir -p "${extract_dir}/usr/lib/firmware/edid"
             sudo cp -avf "${edid_files[@]}" "${extract_dir}/usr/lib/firmware/edid/"
             test -f "${extract_dir}/usr/lib/firmware/edid/${cm311_final_edid}"
 
             new_initrd="${work_dir}/initrd.img-${kernel_name}"
-            (cd "${extract_dir}" && sudo find . -print0 | sudo cpio --null -o -H newc --quiet | gzip -9 > "${new_initrd}")
-            gzip -t "${new_initrd}"
+            (cd "${extract_dir}" && sudo find . -print0 | sudo cpio --null -o -H newc --quiet) | compress_initrd "${initrd_compression}" > "${new_initrd}"
+            decompress_initrd "${initrd_compression}" "${new_initrd}" | cpio -t --quiet >/dev/null
             sudo install -m 0644 "${new_initrd}" "${initrd_path}"
-            gzip -dc "${initrd_path}" | cpio -t --quiet | grep -F "usr/lib/firmware/edid/${cm311_final_edid}"
+            decompress_initrd "${initrd_compression}" "${initrd_path}" | cpio -t --quiet | grep -F "usr/lib/firmware/edid/${cm311_final_edid}"
 
-            sudo mkimage -A arm64 -O linux -T ramdisk -C gzip -n "uInitrd-${kernel_name}" -d "${initrd_path}" "${boot_mnt}/uInitrd-${kernel_name}.new"
+            sudo mkimage -A arm64 -O linux -T ramdisk -C "${uboot_compression}" -n "uInitrd-${kernel_name}" -d "${initrd_path}" "${boot_mnt}/uInitrd-${kernel_name}.new"
             sudo mv -f "${boot_mnt}/uInitrd-${kernel_name}.new" "${boot_mnt}/uInitrd-${kernel_name}"
             sudo cp -f "${boot_mnt}/uInitrd-${kernel_name}" "${boot_mnt}/uInitrd"
             sync
@@ -558,6 +559,77 @@ jobs:
             fi
           }
 
+          detect_initrd_compression() {
+            local initrd="$1"
+            local magic
+            magic="$(file -b "${initrd}")"
+            echo "initrd format: ${magic}" >&2
+            case "${magic}" in
+              *gzip*) echo "gzip" ;;
+              *Zstandard*) echo "zstd" ;;
+              *LZ4*) echo "lz4" ;;
+              *XZ*) echo "xz" ;;
+              *ASCII\ cpio*|*cpio\ archive*) echo "none" ;;
+              *)
+                if gzip -t "${initrd}" 2>/dev/null; then
+                  echo "gzip"
+                elif zstd -tq "${initrd}" 2>/dev/null; then
+                  echo "zstd"
+                elif lz4 -tq "${initrd}" 2>/dev/null; then
+                  echo "lz4"
+                elif xz -t "${initrd}" 2>/dev/null; then
+                  echo "xz"
+                else
+                  echo "error: unsupported initrd compression: ${magic}" >&2
+                  return 1
+                fi
+                ;;
+            esac
+          }
+
+          decompress_initrd() {
+            local compression="$1"
+            local initrd="$2"
+            case "${compression}" in
+              gzip) gzip -dc "${initrd}" ;;
+              zstd) zstd -dcq "${initrd}" ;;
+              lz4) lz4 -dcq "${initrd}" ;;
+              xz) xz -dc "${initrd}" ;;
+              none) cat "${initrd}" ;;
+              *)
+                echo "error: unsupported initrd compression: ${compression}" >&2
+                return 1
+                ;;
+            esac
+          }
+
+          compress_initrd() {
+            local compression="$1"
+            case "${compression}" in
+              gzip) gzip -9 ;;
+              zstd) zstd -19 -T0 -q ;;
+              lz4) lz4 -l -9 -q ;;
+              xz) xz -C crc32 -9 ;;
+              none) cat ;;
+              *)
+                echo "error: unsupported initrd compression: ${compression}" >&2
+                return 1
+                ;;
+            esac
+          }
+
+          mkimage_compression() {
+            local compression="$1"
+            case "${compression}" in
+              gzip|zstd|lz4|none) echo "${compression}" ;;
+              xz) echo "lzma" ;;
+              *)
+                echo "error: unsupported mkimage compression: ${compression}" >&2
+                return 1
+                ;;
+            esac
+          }
+
           for artifact in "${artifacts[@]}"; do
             echo "Embedding CM311 EDID into initramfs for ${artifact}"
             patch_image "${artifact}"
@@ -565,7 +637,7 @@ jobs:
 
       - name: Stage final rebuilt image only
         id: stage_artifacts
-        if: ${{ steps.rebuild.outcome == 'success' && !cancelled() }}
+        if: ${{ steps.rebuild.outcome == 'success' && (inputs.kernel_sign != 'cm311hmi' || steps.cm311_initramfs.outcome == 'success') && !cancelled() }}
         run: |
           set -e
           src="${PACKAGED_OUTPUTPATH}"
